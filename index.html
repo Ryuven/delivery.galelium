@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Galelium Delivery | Вход</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+  <!-- Firebase SDKs -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getAuth, 
+      signInWithPopup, 
+      GoogleAuthProvider, 
+      OAuthProvider,
+      RecaptchaVerifier,
+      signInWithPhoneNumber,
+      onAuthStateChanged, 
+      signOut
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    
+    // Твоя Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyCjIAMFuwLKwmjChCuiz-MHLv5WZOczAAE",
+      authDomain: "delivery-galelium.firebaseapp.com",
+      projectId: "delivery-galelium",
+      storageBucket: "delivery-galelium.firebasestorage.app",
+      messagingSenderId: "982466555080",
+      appId: "1:982466555080:web:c77ccbff0e71e540ddc9fd"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    
+    // --- Провайдеры Google и Apple (оставляем как есть) ---
+    const googleProvider = new GoogleAuthProvider();
+    const appleProvider = new OAuthProvider('apple.com');
+    appleProvider.addScope('email');
+    appleProvider.addScope('name');
+    
+    // --- DOM элементы ---
+    const loginContainer = document.getElementById('loginContainer');
+    const dashboardContainer = document.getElementById('dashboardContainer');
+    const phoneSection = document.getElementById('phoneSection');
+    const codeSection = document.getElementById('codeSection');
+    const verifyButton = document.getElementById('verifyButton');
+    const sendCodeButton = document.getElementById('sendCodeButton');
+    const phoneInput = document.getElementById('phoneInput');
+    const codeInput = document.getElementById('codeInput');
+    const phoneNumberDisplay = document.getElementById('phoneNumberDisplay');
+    const backToPhoneButton = document.getElementById('backToPhoneButton');
+    const profileAvatar = document.getElementById('profileAvatar');
+    const profileName = document.getElementById('profileName');
+    const profileEmail = document.getElementById('profileEmail');
+    const profileUserId = document.getElementById('profileUserId');
+    const signOutBtn = document.getElementById('signOutBtn');
+    const googleBtn = document.getElementById('googleSignIn');
+    const appleBtn = document.getElementById('appleSignIn');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const authProviderSpan = document.getElementById('authProviderText');
+    const profileEmailDetail = document.getElementById('profileEmailDetail');
+    const lastLoginSpan = document.getElementById('lastLoginInfo');
+    
+    // Глобальная переменная для хранения результата подтверждения
+    let confirmationResult = null;
+    
+    // --- Функции UI ---
+    function showLoading(show = true) {
+      loadingOverlay.style.display = show ? 'flex' : 'none';
+    }
+    
+    function getProviderString(user) {
+      if (!user) return '—';
+      if (user.providerData[0]?.providerId === 'google.com') return 'Google';
+      if (user.providerData[0]?.providerId === 'apple.com') return 'Apple';
+      if (user.providerData[0]?.providerId === 'phone') return 'Phone Number';
+      if (user.email?.includes('privaterelay.appleid.com')) return 'Apple (Private Relay)';
+      return 'OAuth';
+    }
+    
+    function updateProfileUI(user) {
+      if (!user) return;
+      const displayName = user.displayName || (user.phoneNumber || user.email?.split('@')[0] || 'Galelium User');
+      const email = user.email || user.phoneNumber || 'Email не предоставлен';
+      const uid = user.uid;
+      const photoURL = user.photoURL;
+      const providerString = getProviderString(user);
+      
+      profileName.textContent = displayName;
+      profileEmail.textContent = email;
+      profileEmailDetail.textContent = email;
+      profileUserId.textContent = uid;
+      authProviderSpan.textContent = providerString;
+      
+      if (user.metadata?.lastSignInTime) {
+        lastLoginSpan.textContent = new Date(user.metadata.lastSignInTime).toLocaleString('ru-RU');
+      } else {
+        lastLoginSpan.textContent = 'Только что';
+      }
+      
+      if (photoURL) {
+        profileAvatar.src = photoURL;
+      } else {
+        const initial = displayName.charAt(0).toUpperCase();
+        const canvas = document.createElement('canvas');
+        canvas.width = 120;
+        canvas.height = 120;
+        const ctx = canvas.getContext('2d');
+        const hue = (uid.charCodeAt(0) * 7 + uid.charCodeAt(uid.length - 1) * 13) % 360;
+        ctx.fillStyle = `hsl(${hue}, 70%, 55%)`;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 52px "Inter", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initial, canvas.width / 2, canvas.height / 2 + 5);
+        profileAvatar.src = canvas.toDataURL();
+      }
+    }
+    
+    function updateUI(user) {
+      showLoading(false);
+      if (user) {
+        loginContainer.classList.add('hidden');
+        dashboardContainer.classList.remove('hidden');
+        updateProfileUI(user);
+      } else {
+        loginContainer.classList.remove('hidden');
+        dashboardContainer.classList.add('hidden');
+        // Сбрасываем UI телефона при выходе
+        phoneSection.classList.remove('hidden');
+        codeSection.classList.add('hidden');
+        phoneInput.value = '';
+        codeInput.value = '';
+        confirmationResult = null;
+      }
+    }
+    
+    // --- Инициализация reCAPTCHA (важно для SMS!) ---
+    function initializeRecaptcha() {
+      // Проверяем, не инициализирован ли уже
+      if (window.recaptchaVerifier) {
+        return window.recaptchaVerifier;
+      }
+      // Создаем невидимый verifier, привязанный к кнопке отправки кода [citation:1]
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'sendCodeButton', {
+        'size': 'invisible',
+        'callback': () => {
+          // Этот коллбэк вызовется после успешного прохождения reCAPTCHA
+          console.log('reCAPTCHA resolved');
+        }
+      });
+      return window.recaptchaVerifier;
+    }
+    
+    // --- Отправка SMS кода ---
+    async function sendVerificationCode() {
+      const phoneNumber = phoneInput.value.trim();
+      if (!phoneNumber) {
+        alert('Введите номер телефона в формате +7XXXXXXXXXX');
+        return;
+      }
+      
+      showLoading(true);
+      try {
+        // Инициализируем reCAPTCHA
+        const appVerifier = initializeRecaptcha();
+        
+        // Отправляем код на указанный номер [citation:1][citation:10]
+        const result = await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+        confirmationResult = result;
+        
+        // Показываем секцию с кодом
+        phoneSection.classList.add('hidden');
+        codeSection.classList.remove('hidden');
+        phoneNumberDisplay.textContent = phoneNumber;
+        showLoading(false);
+        alert('SMS с кодом отправлено!');
+      } catch (error) {
+        showLoading(false);
+        console.error('SMS sending error:', error);
+        let errorMsg = 'Не удалось отправить SMS. ';
+        if (error.code === 'auth/invalid-phone-number') {
+          errorMsg += 'Неверный формат номера. Используйте формат +7XXXXXXXXXX';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorMsg += 'Слишком много попыток. Попробуйте позже.';
+        } else if (error.code === 'auth/operation-not-allowed') {
+          errorMsg += 'Вход по телефону не включен в Firebase Console.';
+        } else if (error.code === 'auth/missing-recaptcha-token') {
+          errorMsg += 'Ошибка reCAPTCHA. Обновите страницу и попробуйте снова.';
+        } else {
+          errorMsg += error.message;
+        }
+        alert(errorMsg);
+        // Сбрасываем reCAPTCHA для повторной попытки [citation:1]
+        if (window.recaptchaVerifier) {
+          window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+        }
+      }
+    }
+    
+    // --- Подтверждение кода и вход ---
+    async function verifyCodeAndSignIn() {
+      const code = codeInput.value.trim();
+      if (!code) {
+        alert('Введите код из SMS');
+        return;
+      }
+      
+      if (!confirmationResult) {
+        alert('Ошибка: нет активной сессии подтверждения. Попробуйте отправить код заново.');
+        phoneSection.classList.remove('hidden');
+        codeSection.classList.add('hidden');
+        return;
+      }
+      
+      showLoading(true);
+      try {
+        // Подтверждаем код и входим в систему [citation:1]
+        const result = await confirmationResult.confirm(code);
+        console.log('Phone sign-in successful:', result.user);
+        // UI обновится через onAuthStateChanged
+      } catch (error) {
+        showLoading(false);
+        console.error('Code confirmation error:', error);
+        let errorMsg = 'Неверный код или срок его действия истек. ';
+        if (error.code === 'auth/invalid-verification-code') {
+          errorMsg += 'Проверьте код и попробуйте снова.';
+        } else {
+          errorMsg += error.message;
+        }
+        alert(errorMsg);
+      }
+    }
+    
+    // Функция для возврата к вводу номера
+    function backToPhone() {
+      phoneSection.classList.remove('hidden');
+      codeSection.classList.add('hidden');
+      codeInput.value = '';
+      // Сбрасываем confirmationResult
+      confirmationResult = null;
+    }
+    
+    // --- Google и Apple Sign-In (оставляем без изменений) ---
+    googleBtn.addEventListener('click', async () => {
+      showLoading(true);
+      try {
+        await signInWithPopup(auth, googleProvider);
+      } catch (error) {
+        showLoading(false);
+        alert('Google error: ' + error.message);
+      }
+    });
+    
+    appleBtn.addEventListener('click', async () => {
+      showLoading(true);
+      try {
+        await signInWithPopup(auth, appleProvider);
+      } catch (error) {
+        showLoading(false);
+        alert('Apple error: ' + error.message);
+      }
+    });
+    
+    // --- Подписываемся на события ---
+    sendCodeButton.addEventListener('click', sendVerificationCode);
+    verifyButton.addEventListener('click', verifyCodeAndSignIn);
+    backToPhoneButton.addEventListener('click', backToPhone);
+    
+    signOutBtn.addEventListener('click', async () => {
+      showLoading(true);
+      try {
+        await signOut(auth);
+      } catch (error) {
+        showLoading(false);
+        alert('Ошибка выхода: ' + error.message);
+      }
+    });
+    
+    onAuthStateChanged(auth, (user) => {
+      updateUI(user);
+    });
+    
+    // Инициализируем reCAPTCHA при загрузке страницы
+    window.addEventListener('load', () => {
+      initializeRecaptcha();
+      showLoading(false);
+    });
+  </script>
+  <style>
+    /* Стили (оставляем как в предыдущей версии, добавляем пару классов для телефона) */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at 10% 20%, #0f172a 0%, #020617 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(16px);
+      border-radius: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    .container { width: 100%; max-width: 460px; margin: 0 auto; }
+    .login-wrapper, .dashboard-wrapper { padding: 2.5rem 2rem; }
+    .brand { text-align: center; margin-bottom: 2rem; }
+    .brand-icon {
+      background: linear-gradient(145deg, #f97316, #ea580c);
+      width: 80px; height: 80px; margin: 0 auto 1.2rem;
+      border-radius: 1.8rem;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 20px 35px -10px rgba(249, 115, 22, 0.5);
+    }
+    .brand-icon i { font-size: 2.8rem; color: white; }
+    h1 {
+      font-size: 2rem; font-weight: 800;
+      background: linear-gradient(135deg, #fff, #fbbf24);
+      -webkit-background-clip: text; background-clip: text;
+      color: transparent;
+    }
+    .subhead { color: #94a3b8; margin-top: 0.5rem; font-size: 0.9rem; }
+    .divider {
+      display: flex; align-items: center; text-align: center;
+      color: #64748b; font-size: 0.8rem; margin: 1.8rem 0;
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .divider span { margin: 0 1rem; font-weight: 500; }
+    
+    /* Input styles */
+    .phone-group, .code-group {
+      margin-bottom: 1.2rem;
+    }
+    .phone-input, .code-input {
+      width: 100%;
+      padding: 0.9rem 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 1.2rem;
+      color: white;
+      font-size: 1rem;
+      font-family: 'Inter', sans-serif;
+      transition: all 0.2s;
+    }
+    .phone-input:focus, .code-input:focus {
+      outline: none;
+      border-color: #f97316;
+      background: rgba(255, 255, 255, 0.08);
+    }
+    .phone-input::placeholder, .code-input::placeholder {
+      color: #64748b;
+    }
+    .sms-button {
+      width: 100%;
+      padding: 0.9rem;
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      border: none;
+      border-radius: 1.2rem;
+      color: white;
+      font-weight: 600;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      font-family: 'Inter', sans-serif;
+    }
+    .sms-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px -8px #f97316;
+    }
+    .back-link {
+      text-align: center;
+      margin-top: 1rem;
+    }
+    .back-link a {
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .back-link a:hover {
+      color: #f97316;
+    }
+    .sms-note {
+      background: rgba(249, 115, 22, 0.1);
+      border-left: 3px solid #f97316;
+      padding: 0.8rem 1rem;
+      border-radius: 1rem;
+      margin-top: 1rem;
+      font-size: 0.7rem;
+      color: #94a3b8;
+    }
+    .social-btn {
+      width: 100%;
+      padding: 0.9rem;
+      border-radius: 3rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      transition: all 0.2s;
+    }
+    .google-btn:hover { background: rgba(219, 68, 55, 0.15); border-color: #db4437; }
+    .apple-btn:hover { background: rgba(255, 255, 255, 0.1); border-color: #fff; }
+    .hidden { display: none; }
+    
+    /* Dashboard styles */
+    .dashboard-wrapper .profile-header { text-align: center; }
+    .avatar-ring {
+      width: 120px; height: 120px; margin: 0 auto 1rem;
+      background: linear-gradient(135deg, #f97316, #facc15);
+      border-radius: 50%; padding: 3px;
+    }
+    .avatar-ring img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+    .welcome-text { font-size: 1.6rem; font-weight: 700; color: white; margin-bottom: 0.3rem; }
+    .email-badge {
+      background: rgba(249, 115, 22, 0.15);
+      padding: 0.3rem 1.2rem; border-radius: 40px;
+      display: inline-block; font-size: 0.8rem; color: #fbbf24;
+    }
+    .info-panel {
+      background: rgba(0, 0, 0, 0.3); border-radius: 1.5rem;
+      padding: 1.2rem; margin: 1.8rem 0;
+    }
+    .info-row {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.8rem 0; border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-icon {
+      width: 42px; height: 42px;
+      background: rgba(249, 115, 22, 0.15); border-radius: 42px;
+      display: flex; align-items: center; justify-content: center;
+      color: #f97316;
+    }
+    .info-label { font-size: 0.65rem; text-transform: uppercase; color: #94a3b8; }
+    .info-value { font-weight: 500; color: #f1f5f9; word-break: break-all; font-size: 0.85rem; }
+    .signout-btn {
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      color: #f87171; width: 100%; padding: 0.85rem;
+      border-radius: 3rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      cursor: pointer;
+    }
+    .signout-btn:hover { background: rgba(239, 68, 68, 0.25); border-color: #ef4444; color: white; }
+    .loading-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(12px);
+      z-index: 1000; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 1rem;
+    }
+    .spinner {
+      width: 50px; height: 50px;
+      border: 4px solid rgba(249, 115, 22, 0.2);
+      border-top-color: #f97316; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { color: #f1f5f9; font-size: 0.9rem; }
+    @media (max-width: 500px) {
+      .login-wrapper, .dashboard-wrapper { padding: 1.5rem; }
+      h1 { font-size: 1.6rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <!-- LOGIN SECTION -->
+  <div id="loginContainer" class="glass-card login-wrapper">
+    <div class="brand">
+      <div class="brand-icon"><i class="fas fa-box-open"></i></div>
+      <h1>galelium</h1>
+      <div class="subhead">доставка · безопасный вход</div>
+    </div>
+
+    <!-- SMS ВХОД -->
+    <div id="phoneSection">
+      <div class="phone-group">
+        <input type="tel" id="phoneInput" class="phone-input" placeholder="+7 XXX XXX XX XX" value="">
+      </div>
+      <button id="sendCodeButton" class="sms-button"><i class="fas fa-paper-plane"></i> Войти по SMS</button>
+      <div class="sms-note">
+        <i class="fas fa-shield-alt"></i> Мы отправим SMS с кодом подтверждения. Стандартные тарифы оператора.
+      </div>
+    </div>
+
+    <div id="codeSection" class="hidden">
+      <div class="code-group">
+        <input type="text" id="codeInput" class="code-input" placeholder="Введите 6-значный код" maxlength="6">
+      </div>
+      <button id="verifyButton" class="sms-button"><i class="fas fa-check-circle"></i> Подтвердить и войти</button>
+      <div class="back-link">
+        <a id="backToPhoneButton">← Использовать другой номер</a>
+      </div>
+      <div class="sms-note">
+        <i class="fas fa-clock"></i> Код отправлен на номер <span id="phoneNumberDisplay"></span>
+      </div>
+    </div>
+
+    <div class="divider"><span>или через соцсети</span></div>
+    <button id="googleSignIn" class="social-btn google-btn"><i class="fab fa-google"></i> Войти через Google</button>
+    <button id="appleSignIn" class="social-btn apple-btn"><i class="fab fa-apple"></i> Войти через Apple</button>
+    <div class="terms">Продолжая, вы соглашаетесь с условиями использования.</div>
+  </div>
+
+  <!-- DASHBOARD SECTION -->
+  <div id="dashboardContainer" class="glass-card dashboard-wrapper hidden">
+    <div class="profile-header">
+      <div class="avatar-ring"><img id="profileAvatar" alt="Avatar"></div>
+      <div class="welcome-text" id="profileName">Загрузка...</div>
+      <div class="email-badge" id="profileEmail">—</div>
+    </div>
+    <div class="info-panel">
+      <div class="info-row"><div class="info-icon"><i class="fas fa-user-astronaut"></i></div><div class="info-content"><div class="info-label">ID пользователя</div><div class="info-value" id="profileUserId">—</div></div></div>
+      <div class="info-row"><div class="info-icon"><i class="fas fa-envelope"></i></div><div class="info-content"><div class="info-label">Email / Телефон</div><div class="info-value" id="profileEmailDetail">—</div></div></div>
+      <div class="info-row"><div class="info-icon"><i class="fas fa-id-card"></i></div><div class="info-content"><div class="info-label">Провайдер входа</div><div class="info-value" id="authProviderText">—</div></div></div>
+      <div class="info-row"><div class="info-icon"><i class="fas fa-clock"></i></div><div class="info-content"><div class="info-label">Последний вход</div><div class="info-value" id="lastLoginInfo">—</div></div></div>
+    </div>
+    <button id="signOutBtn" class="signout-btn"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+  </div>
+</div>
+<div id="loadingOverlay" class="loading-overlay" style="display: none;"><div class="spinner"></div><div class="loading-text">Подключение...</div></div>
+</body>
+</html>
