@@ -5,15 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Курьер - Galelium Delivery</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: system-ui, sans-serif;
-            background: #f5f5f5;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: system-ui, sans-serif; background: #f5f5f5; }
         .header {
             background: white;
             padding: 15px 20px;
@@ -21,32 +14,33 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        .logout-btn {
-            background: #e53e3e;
-            padding: 8px 16px;
-            border-radius: 8px;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+        .user-info { display: flex; align-items: center; gap: 15px; }
+        .user-name { font-weight: 600; color: #667eea; }
+        .logout-btn { background: #e53e3e; color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
         .stats {
             background: linear-gradient(135deg, #667eea, #764ba2);
             color: white;
             padding: 20px;
             border-radius: 15px;
             margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
         }
-        .orders-list {
+        .stat-card { text-align: center; }
+        .stat-value { font-size: 28px; font-weight: 700; }
+        .stat-label { font-size: 12px; opacity: 0.9; }
+        .section {
             background: white;
             border-radius: 15px;
             padding: 20px;
+            margin-bottom: 20px;
         }
+        .section h3 { margin-bottom: 15px; }
         .order-card {
             border: 1px solid #e0e0e0;
             border-radius: 12px;
@@ -54,9 +48,7 @@
             margin-bottom: 15px;
             transition: box-shadow 0.2s;
         }
-        .order-card:hover {
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
+        .order-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .order-status {
             display: inline-block;
             padding: 4px 12px;
@@ -79,31 +71,43 @@
             margin-top: 10px;
             margin-right: 10px;
         }
-        button:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-        .earnings {
-            font-size: 24px;
-            font-weight: 700;
-        }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .call-btn { background: #4caf50; }
+        .flex { display: flex; gap: 10px; flex-wrap: wrap; }
+        .items-list { font-size: 14px; color: #666; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 8px; }
     </style>
 </head>
 <body>
     <div class="header">
         <h2>🚚 Курьерский центр</h2>
-        <button class="logout-btn" onclick="logout()">Выйти</button>
+        <div class="user-info">
+            <span class="user-name" id="userName"></span>
+            <button class="logout-btn" onclick="logout()">Выйти</button>
+        </div>
     </div>
     
     <div class="container">
         <div class="stats" id="stats">
-            <div>💰 Заработано сегодня: <span id="todayEarnings" class="earnings">0</span> сомони</div>
+            <div class="stat-card">
+                <div class="stat-value" id="todayEarnings">0</div>
+                <div class="stat-label">💰 Заработано сегодня</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="todayOrders">0</div>
+                <div class="stat-label">📦 Доставлено сегодня</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" id="totalEarnings">0</div>
+                <div class="stat-label">💵 Всего заработано</div>
+            </div>
         </div>
         
-        <div class="orders-list">
-            <h3>📦 Доступные заказы</h3>
+        <div class="section">
+            <h3>📦 Новые заказы</h3>
             <div id="availableOrders"></div>
-            
+        </div>
+        
+        <div class="section">
             <h3>🔄 Мои активные заказы</h3>
             <div id="myOrders"></div>
         </div>
@@ -111,31 +115,35 @@
 
     <script type="module">
         import { 
-            db, auth, collection, doc, updateDoc, 
+            db, auth, collection, doc, updateDoc, getDoc,
             query, where, onSnapshot, signOut 
         } from './app.js';
         
-        let currentUserId = null;
+        let currentUser = null;
+        let userName = '';
         let todayTotal = 0;
+        let todayCount = 0;
+        let allTimeTotal = 0;
         
-        // Статусы: new -> accepted -> bought -> delivered
-        const nextStatus = {
-            'new': 'accepted',
-            'accepted': 'bought',
-            'bought': 'delivered'
-        };
-        
-        onSnapshot(auth, (user) => {
-            if (user) {
-                currentUserId = user.uid;
-                loadOrders();
-            } else {
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
                 window.location.href = '/auth.html';
+                return;
             }
+            currentUser = user;
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            if (userDoc.exists() && userDoc.data().role !== 'courier') {
+                if (userDoc.data().role === 'admin') window.location.href = '/dashboard.html';
+                else if (userDoc.data().role === 'client') window.location.href = '/';
+                return;
+            }
+            userName = userDoc.data().name || user.email;
+            document.getElementById('userName').textContent = userName;
+            loadOrders();
         });
         
         function loadOrders() {
-            // Доступные заказы (status = 'new')
+            // Новые заказы (status = 'new')
             const qAvailable = query(collection(db, 'orders'), where('status', '==', 'new'));
             onSnapshot(qAvailable, (snapshot) => {
                 const orders = [];
@@ -144,19 +152,32 @@
             });
             
             // Мои заказы
-            const qMy = query(collection(db, 'orders'), where('courierId', '==', currentUserId));
+            const qMy = query(collection(db, 'orders'), where('courierId', '==', currentUser?.uid));
             onSnapshot(qMy, (snapshot) => {
                 const orders = [];
+                let today = 0;
+                let todayCnt = 0;
                 let total = 0;
+                const todayStart = new Date();
+                todayStart.setHours(0, 0, 0, 0);
+                
                 snapshot.forEach(doc => {
                     const order = { id: doc.id, ...doc.data() };
                     orders.push(order);
                     if (order.status === 'delivered') {
                         total += order.deliveryFee || 0;
+                        if (order.createdAt?.toDate() >= todayStart) {
+                            today += order.deliveryFee || 0;
+                            todayCnt++;
+                        }
                     }
                 });
-                todayTotal = total;
+                todayTotal = today;
+                todayCount = todayCnt;
+                allTimeTotal = total;
                 document.getElementById('todayEarnings').textContent = todayTotal;
+                document.getElementById('todayOrders').textContent = todayCount;
+                document.getElementById('totalEarnings').textContent = allTimeTotal;
                 renderMyOrders(orders);
             });
         }
@@ -164,16 +185,17 @@
         function renderAvailableOrders(orders) {
             const container = document.getElementById('availableOrders');
             if (orders.length === 0) {
-                container.innerHTML = '<p>😴 Нет доступных заказов</p>';
+                container.innerHTML = '<p style="color: #888;">😴 Нет новых заказов</p>';
                 return;
             }
             container.innerHTML = orders.map(order => `
                 <div class="order-card">
-                    <span class="order-status status-${order.status}">🆕 Новый</span>
-                    <p><strong>${order.clientName}</strong> | ${order.clientPhone}</p>
+                    <span class="order-status status-new">🆕 Новый заказ</span>
+                    <p><strong>${order.clientName}</strong> | 📞 ${order.clientPhone}</p>
                     <p>📍 ${order.address}</p>
-                    <p>📦 Товары: ${order.items.length} шт | 💵 ${order.total} сомони</p>
-                    <p>🚚 Оплата курьеру: ${order.deliveryFee} сомони</p>
+                    <div class="items-list">📦 ${order.items.map(i => i.name).join(', ')}</div>
+                    <p>💵 Сумма: ${order.total} сомони | 🚚 Курьеру: ${order.deliveryFee} сомони</p>
+                    ${order.comment ? `<p>📝 Комментарий: ${order.comment}</p>` : ''}
                     <button onclick="acceptOrder('${order.id}')">✅ Взять заказ</button>
                 </div>
             `).join('');
@@ -182,29 +204,49 @@
         function renderMyOrders(orders) {
             const container = document.getElementById('myOrders');
             if (orders.length === 0) {
-                container.innerHTML = '<p>🚫 Нет активных заказов</p>';
+                container.innerHTML = '<p style="color: #888;">🚫 Нет активных заказов</p>';
                 return;
             }
             container.innerHTML = orders.map(order => {
-                const canNext = order.status !== 'delivered';
-                const nextAction = nextStatus[order.status];
-                const actionText = {
-                    'accepted': '🛒 Купил товар',
-                    'bought': '✅ Доставил'
-                }[order.status] || '...';
+                let statusText = '';
+                let statusClass = '';
+                let actions = '';
+                
+                switch(order.status) {
+                    case 'new':
+                        statusText = '🆕 Новый';
+                        statusClass = 'status-new';
+                        actions = `<button onclick="acceptOrder('${order.id}')">✅ Взять заказ</button>`;
+                        break;
+                    case 'accepted':
+                        statusText = '📦 Принят';
+                        statusClass = 'status-accepted';
+                        actions = `<button onclick="updateOrderStatus('${order.id}', 'bought')">🛒 Купил товар</button>`;
+                        break;
+                    case 'bought':
+                        statusText = '🛒 Товар куплен';
+                        statusClass = 'status-bought';
+                        actions = `<button onclick="updateOrderStatus('${order.id}', 'delivered')">✅ Доставил</button>`;
+                        break;
+                    case 'delivered':
+                        statusText = '✅ Доставлен';
+                        statusClass = 'status-delivered';
+                        actions = '';
+                        break;
+                }
                 
                 return `
                     <div class="order-card">
-                        <span class="order-status status-${order.status}">
-                            ${order.status === 'new' ? '🆕 Новый' : 
-                              order.status === 'accepted' ? '📦 Принят' :
-                              order.status === 'bought' ? '🛒 Куплен' : '✅ Доставлен'}
-                        </span>
-                        <p><strong>${order.clientName}</strong> | ${order.clientPhone}</p>
+                        <span class="order-status ${statusClass}">${statusText}</span>
+                        <p><strong>${order.clientName}</strong> | 📞 ${order.clientPhone}</p>
                         <p>📍 ${order.address}</p>
-                        <p>📦 Товары: ${order.items.map(i => i.name).join(', ')}</p>
-                        ${canNext ? `<button onclick="updateOrderStatus('${order.id}', '${nextAction}')">${actionText}</button>` : ''}
-                        <button onclick="callClient('${order.clientPhone}')">📞 Позвонить клиенту</button>
+                        <div class="items-list">📦 ${order.items.map(i => i.name).join(', ')}</div>
+                        <p>💵 Курьеру: ${order.deliveryFee} сомони</p>
+                        ${order.comment ? `<p>📝 Комментарий: ${order.comment}</p>` : ''}
+                        <div class="flex">
+                            ${actions}
+                            <button class="call-btn" onclick="callClient('${order.clientPhone}')">📞 Позвонить</button>
+                        </div>
                     </div>
                 `;
             }).join('');
@@ -213,21 +255,15 @@
         window.acceptOrder = async function(orderId) {
             await updateDoc(doc(db, 'orders', orderId), {
                 status: 'accepted',
-                courierId: currentUserId
+                courierId: currentUser.uid,
+                courierName: userName
             });
         };
         
-        window.updateOrderStatus = async function(orderId, action) {
-            const statusMap = {
-                '🛒 Купил товар': 'bought',
-                '✅ Доставил': 'delivered'
-            };
-            const newStatus = statusMap[action];
-            if (newStatus) {
-                await updateDoc(doc(db, 'orders', orderId), {
-                    status: newStatus
-                });
-            }
+        window.updateOrderStatus = async function(orderId, newStatus) {
+            await updateDoc(doc(db, 'orders', orderId), {
+                status: newStatus
+            });
         };
         
         window.callClient = function(phone) {
@@ -237,6 +273,7 @@
         window.logout = async function() {
             await signOut(auth);
             localStorage.removeItem('userRole');
+            localStorage.removeItem('userName');
             window.location.href = '/auth.html';
         };
     </script>
