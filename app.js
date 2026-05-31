@@ -1,10 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-  getFirestore, collection, addDoc, getDocs, doc, updateDoc, 
-  query, where, orderBy, onSnapshot, Timestamp 
+  getFirestore, collection, addDoc, getDocs, doc, updateDoc, deleteDoc,
+  query, where, orderBy, onSnapshot, Timestamp, getDoc, setDoc
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import { 
-  getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut 
+  getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  onAuthStateChanged, signOut, updateProfile
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -20,15 +21,16 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Коллекции (автоматически создадутся при первом добавлении)
+// Коллекции
 const ORDERS_COLLECTION = 'orders';
 const PRODUCTS_COLLECTION = 'products';
-const COURIERS_COLLECTION = 'couriers';
+const USERS_COLLECTION = 'users';
 
 export { 
   db, auth, 
-  collection, addDoc, getDocs, doc, updateDoc, 
+  collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc, setDoc,
   query, where, orderBy, onSnapshot, Timestamp,
-  ORDERS_COLLECTION, PRODUCTS_COLLECTION, COURIERS_COLLECTION,
-  signInWithEmailAndPassword, onAuthStateChanged, signOut
+  ORDERS_COLLECTION, PRODUCTS_COLLECTION, USERS_COLLECTION,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  onAuthStateChanged, signOut, updateProfile
 };
