@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход - Delivery Galelium</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 28px;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.2s;
+        }
+        button:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+        }
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .role-select {
+            margin-bottom: 20px;
+        }
+        .role-select label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚚 Delivery Galelium</h1>
+        <div id="error" class="error" style="display: none;"></div>
+        
+        <div class="role-select">
+            <label>Кто вы?</label>
+            <select id="role">
+                <option value="admin">Администратор</option>
+                <option value="courier">Курьер</option>
+            </select>
+        </div>
+        
+        <input type="email" id="email" placeholder="Email" autocomplete="email">
+        <input type="password" id="password" placeholder="Пароль" autocomplete="current-password">
+        
+        <button onclick="login()">Войти</button>
+        
+        <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #888;">
+            Тестовые аккаунты:<br>
+            admin@delivery.com / admin123<br>
+            courier@delivery.com / courier123
+        </p>
+    </div>
+
+    <script type="module">
+        import { auth, signInWithEmailAndPassword, onAuthStateChanged } from './app.js';
+        
+        window.login = async function() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const role = document.getElementById('role').value;
+            const errorDiv = document.getElementById('error');
+            
+            errorDiv.style.display = 'none';
+            
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                // Сохраняем роль в localStorage
+                localStorage.setItem('userRole', role);
+                localStorage.setItem('userId', user.uid);
+                
+                // Перенаправляем в зависимости от роли
+                if (role === 'admin') {
+                    window.location.href = '/dashboard.html';
+                } else {
+                    window.location.href = '/courier.html';
+                }
+            } catch (error) {
+                errorDiv.textContent = error.message;
+                errorDiv.style.display = 'block';
+            }
+        };
+        
+        // Если уже авторизован
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const role = localStorage.getItem('userRole');
+                if (role === 'admin') window.location.href = '/dashboard.html';
+                else if (role === 'courier') window.location.href = '/courier.html';
+            }
+        });
+    </script>
+</body>
+</html>
