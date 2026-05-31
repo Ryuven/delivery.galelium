@@ -3,13 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Вход - Delivery Galelium</title>
+    <title>Вход / Регистрация - Galelium Delivery</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: system-ui, -apple-system, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -24,16 +20,27 @@
             border-radius: 20px;
             padding: 40px;
             width: 100%;
-            max-width: 400px;
+            max-width: 450px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        h1 {
-            text-align: center;
-            color: #333;
-            margin-bottom: 30px;
-            font-size: 28px;
+        h1 { text-align: center; color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 14px; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 30px; }
+        .tab {
+            flex: 1;
+            padding: 12px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.3s;
         }
-        input {
+        .tab.active { background: #667eea; color: white; }
+        .form { display: none; }
+        .form.active { display: block; }
+        input, select {
             width: 100%;
             padding: 12px;
             margin-bottom: 15px;
@@ -42,10 +49,7 @@
             font-size: 16px;
             transition: border-color 0.3s;
         }
-        input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
+        input:focus { outline: none; border-color: #667eea; }
         button {
             width: 100%;
             padding: 12px;
@@ -56,12 +60,9 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
-            transition: transform 0.2s, background 0.2s;
+            transition: transform 0.2s;
         }
-        button:hover {
-            background: #5a67d8;
-            transform: translateY(-2px);
-        }
+        button:hover { transform: translateY(-2px); }
         .error {
             background: #fee;
             color: #c33;
@@ -71,86 +72,196 @@
             text-align: center;
             font-size: 14px;
         }
-        .role-select {
-            margin-bottom: 20px;
+        .success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 14px;
         }
-        .role-select label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #555;
-        }
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 10px;
-            font-size: 16px;
-        }
+        .role-select { margin-bottom: 15px; }
+        .role-select label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🚚 Delivery Galelium</h1>
-        <div id="error" class="error" style="display: none;"></div>
+        <h1>🚚 Galelium Delivery</h1>
+        <div class="subtitle">Таджикистан — доставка товаров</div>
         
-        <div class="role-select">
-            <label>Кто вы?</label>
-            <select id="role">
-                <option value="admin">Администратор</option>
-                <option value="courier">Курьер</option>
-            </select>
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('login')">Вход</button>
+            <button class="tab" onclick="switchTab('register')">Регистрация</button>
         </div>
         
-        <input type="email" id="email" placeholder="Email" autocomplete="email">
-        <input type="password" id="password" placeholder="Пароль" autocomplete="current-password">
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="success" class="success" style="display: none;"></div>
         
-        <button onclick="login()">Войти</button>
+        <!-- Форма входа -->
+        <div id="login-form" class="form active">
+            <select id="login-role">
+                <option value="client">Клиент</option>
+                <option value="courier">Курьер</option>
+                <option value="admin">Администратор</option>
+            </select>
+            <input type="email" id="login-email" placeholder="Email" autocomplete="email">
+            <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password">
+            <button onclick="login()">Войти</button>
+        </div>
         
-        <p style="text-align: center; margin-top: 20px; font-size: 12px; color: #888;">
-            Тестовые аккаунты:<br>
-            admin@delivery.com / admin123<br>
-            courier@delivery.com / courier123
-        </p>
+        <!-- Форма регистрации -->
+        <div id="register-form" class="form">
+            <select id="register-role">
+                <option value="client">Клиент</option>
+                <option value="courier">Курьер</option>
+            </select>
+            <input type="text" id="register-name" placeholder="Ваше имя">
+            <input type="email" id="register-email" placeholder="Email">
+            <input type="tel" id="register-phone" placeholder="Телефон">
+            <input type="password" id="register-password" placeholder="Пароль (минимум 6 символов)">
+            <button onclick="register()">Зарегистрироваться</button>
+        </div>
     </div>
 
     <script type="module">
-        import { auth, signInWithEmailAndPassword, onAuthStateChanged } from './app.js';
+        import { 
+            auth, db, setDoc, doc,
+            signInWithEmailAndPassword, createUserWithEmailAndPassword,
+            updateProfile, onAuthStateChanged 
+        } from './app.js';
+        
+        window.switchTab = function(tab) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.form').forEach(f => f.classList.remove('active'));
+            if (tab === 'login') {
+                document.querySelector('.tab:first-child').classList.add('active');
+                document.getElementById('login-form').classList.add('active');
+            } else {
+                document.querySelector('.tab:last-child').classList.add('active');
+                document.getElementById('register-form').classList.add('active');
+            }
+            hideMessages();
+        };
+        
+        function hideMessages() {
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('success').style.display = 'none';
+        }
+        
+        function showError(msg) {
+            const el = document.getElementById('error');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+        
+        function showSuccess(msg) {
+            const el = document.getElementById('success');
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 3000);
+        }
         
         window.login = async function() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const role = document.getElementById('role').value;
-            const errorDiv = document.getElementById('error');
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            const role = document.getElementById('login-role').value;
+            hideMessages();
             
-            errorDiv.style.display = 'none';
+            if (!email || !password) {
+                showError('Заполните все поля');
+                return;
+            }
             
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
                 
-                // Сохраняем роль в localStorage
-                localStorage.setItem('userRole', role);
-                localStorage.setItem('userId', user.uid);
+                // Проверяем роль пользователя
+                const userDoc = await import('./app.js').then(m => m.getDoc(m.doc(m.db, 'users', user.uid)));
+                const userRole = userDoc.exists() ? userDoc.data().role : null;
                 
-                // Перенаправляем в зависимости от роли
-                if (role === 'admin') {
-                    window.location.href = '/dashboard.html';
-                } else {
-                    window.location.href = '/courier.html';
+                if (role === 'admin' && userRole !== 'admin') {
+                    showError('У вас нет прав администратора');
+                    await signOut(auth);
+                    return;
                 }
+                if (role === 'courier' && userRole !== 'courier') {
+                    showError('У вас нет прав курьера');
+                    await signOut(auth);
+                    return;
+                }
+                if (role === 'client' && userRole !== 'client') {
+                    showError('У вас нет прав клиента');
+                    await signOut(auth);
+                    return;
+                }
+                
+                localStorage.setItem('userRole', userRole);
+                localStorage.setItem('userName', user.displayName || email);
+                
+                if (userRole === 'admin') window.location.href = '/dashboard.html';
+                else if (userRole === 'courier') window.location.href = '/courier.html';
+                else window.location.href = '/';
+                
             } catch (error) {
-                errorDiv.textContent = error.message;
-                errorDiv.style.display = 'block';
+                showError(error.message);
             }
         };
         
-        // Если уже авторизован
+        window.register = async function() {
+            const name = document.getElementById('register-name').value;
+            const email = document.getElementById('register-email').value;
+            const phone = document.getElementById('register-phone').value;
+            const password = document.getElementById('register-password').value;
+            const role = document.getElementById('register-role').value;
+            hideMessages();
+            
+            if (!name || !email || !phone || !password) {
+                showError('Заполните все поля');
+                return;
+            }
+            if (password.length < 6) {
+                showError('Пароль должен быть минимум 6 символов');
+                return;
+            }
+            
+            try {
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                await updateProfile(user, { displayName: name });
+                
+                await setDoc(doc(db, 'users', user.uid), {
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    role: role,
+                    createdAt: new Date().toISOString(),
+                    balance: 0
+                });
+                
+                localStorage.setItem('userRole', role);
+                localStorage.setItem('userName', name);
+                
+                showSuccess('Регистрация успешна! Перенаправление...');
+                setTimeout(() => {
+                    if (role === 'client') window.location.href = '/';
+                    else if (role === 'courier') window.location.href = '/courier.html';
+                }, 1500);
+                
+            } catch (error) {
+                showError(error.message);
+            }
+        };
+        
         onAuthStateChanged(auth, (user) => {
             if (user) {
                 const role = localStorage.getItem('userRole');
                 if (role === 'admin') window.location.href = '/dashboard.html';
                 else if (role === 'courier') window.location.href = '/courier.html';
+                else if (role === 'client') window.location.href = '/';
             }
         });
     </script>
