@@ -71,10 +71,10 @@
             margin-top: 10px;
             margin-right: 10px;
         }
-        button:disabled { background: #ccc; cursor: not-allowed; }
         .call-btn { background: #4caf50; }
         .flex { display: flex; gap: 10px; flex-wrap: wrap; }
         .items-list { font-size: 14px; color: #666; margin-top: 8px; padding: 8px; background: #f8f9fa; border-radius: 8px; }
+        .refresh-btn { background: #2196f3; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -87,6 +87,8 @@
     </div>
     
     <div class="container">
+        <button class="refresh-btn" onclick="refreshData()">🔄 Обновить</button>
+        
         <div class="stats" id="stats">
             <div class="stat-card">
                 <div class="stat-value" id="todayEarnings">0</div>
@@ -103,7 +105,7 @@
         </div>
         
         <div class="section">
-            <h3>📦 Новые заказы</h3>
+            <h3>📦 Новые заказы (статус: new)</h3>
             <div id="availableOrders"></div>
         </div>
         
@@ -115,15 +117,12 @@
 
     <script type="module">
         import { 
-            db, auth, collection, doc, updateDoc, getDoc,
-            query, where, onSnapshot, signOut 
+            db, auth, collection, doc, updateDoc, getDoc, getDocs,
+            query, where, signOut 
         } from './app.js';
         
         let currentUser = null;
         let userName = '';
-        let todayTotal = 0;
-        let todayCount = 0;
-        let allTimeTotal = 0;
         
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
@@ -139,74 +138,80 @@
             }
             userName = userDoc.data().name || user.email;
             document.getElementById('userName').textContent = userName;
-            loadOrders();
+            refreshData();
         });
         
-        function loadOrders() {
-            // Новые заказы (status = 'new')
-            const qAvailable = query(collection(db, 'orders'), where('status', '==', 'new'));
-            onSnapshot(qAvailable, (snapshot) => {
-                const orders = [];
-                snapshot.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
-                renderAvailableOrders(orders);
+        window.refreshData = async function() {
+            await loadAvailableOrders();
+            await loadMyOrders();
+        };
+        
+        async function loadAvailableOrders() {
+            console.log('Загрузка доступных заказов...');
+            const q = query(collection(db, 'orders'), where('status', '==', 'new'));
+            const snapshot = await getDocs(q);
+            
+            const orders = [];
+            snapshot.forEach(doc => {
+                orders.push({ id: doc.id, ...doc.data() });
+                console.log('Найден заказ:', doc.id, doc.data());
             });
             
-            // Мои заказы
-            const qMy = query(collection(db, 'orders'), where('courierId', '==', currentUser?.uid));
-            onSnapshot(qMy, (snapshot) => {
-                const orders = [];
-                let today = 0;
-                let todayCnt = 0;
-                let total = 0;
-                const todayStart = new Date();
-                todayStart.setHours(0, 0, 0, 0);
-                
-                snapshot.forEach(doc => {
-                    const order = { id: doc.id, ...doc.data() };
-                    orders.push(order);
-                    if (order.status === 'delivered') {
-                        total += order.deliveryFee || 0;
-                        if (order.createdAt?.toDate() >= todayStart) {
-                            today += order.deliveryFee || 0;
-                            todayCnt++;
-                        }
-                    }
-                });
-                todayTotal = today;
-                todayCount = todayCnt;
-                allTimeTotal = total;
-                document.getElementById('todayEarnings').textContent = todayTotal;
-                document.getElementById('todayOrders').textContent = todayCount;
-                document.getElementById('totalEarnings').textContent = allTimeTotal;
-                renderMyOrders(orders);
-            });
-        }
-        
-        function renderAvailableOrders(orders) {
             const container = document.getElementById('availableOrders');
             if (orders.length === 0) {
                 container.innerHTML = '<p style="color: #888;">😴 Нет новых заказов</p>';
                 return;
             }
+            
             container.innerHTML = orders.map(order => `
                 <div class="order-card">
                     <span class="order-status status-new">🆕 Новый заказ</span>
-                    <p><strong>${order.clientName}</strong> | 📞 ${order.clientPhone}</p>
-                    <p>📍 ${order.address}</p>
-                    <div class="items-list">📦 ${order.items.map(i => i.name).join(', ')}</div>
-                    <p>💵 Сумма: ${order.total} сомони | 🚚 Курьеру: ${order.deliveryFee} сомони</p>
+                    <p><strong>${order.clientName || 'Без имени'}</strong> | 📞 ${order.clientPhone || 'Нет телефона'}</p>
+                    <p>📍 ${order.address || 'Нет адреса'}</p>
+                    <div class="items-list">📦 ${order.items ? order.items.map(i => i.name).join(', ') : 'Нет товаров'}</div>
+                    <p>💵 Сумма: ${order.total || 0} сомони | 🚚 Курьеру: ${order.deliveryFee || 10} сомони</p>
                     ${order.comment ? `<p>📝 Комментарий: ${order.comment}</p>` : ''}
                     <button onclick="acceptOrder('${order.id}')">✅ Взять заказ</button>
                 </div>
             `).join('');
         }
         
-        function renderMyOrders(orders) {
+        async function loadMyOrders() {
+            if (!currentUser) return;
+            
+            console.log('Загрузка моих заказов для курьера:', currentUser.uid);
+            const q = query(collection(db, 'orders'), where('courierId', '==', currentUser.uid));
+            const snapshot = await getDocs(q);
+            
+            const orders = [];
+            let todayTotal = 0;
+            let todayCount = 0;
+            let allTimeTotal = 0;
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            
+            snapshot.forEach(doc => {
+                const order = { id: doc.id, ...doc.data() };
+                orders.push(order);
+                if (order.status === 'delivered') {
+                    allTimeTotal += order.deliveryFee || 0;
+                    if (order.createdAt?.toDate() >= todayStart) {
+                        todayTotal += order.deliveryFee || 0;
+                        todayCount++;
+                    }
+                }
+            });
+            
+            document.getElementById('todayEarnings').textContent = todayTotal;
+            document.getElementById('todayOrders').textContent = todayCount;
+            document.getElementById('totalEarnings').textContent = allTimeTotal;
+            
             const container = document.getElementById('myOrders');
             if (orders.length === 0) {
                 container.innerHTML = '<p style="color: #888;">🚫 Нет активных заказов</p>';
                 return;
             }
+            
             container.innerHTML = orders.map(order => {
                 let statusText = '';
                 let statusClass = '';
@@ -238,14 +243,14 @@
                 return `
                     <div class="order-card">
                         <span class="order-status ${statusClass}">${statusText}</span>
-                        <p><strong>${order.clientName}</strong> | 📞 ${order.clientPhone}</p>
-                        <p>📍 ${order.address}</p>
-                        <div class="items-list">📦 ${order.items.map(i => i.name).join(', ')}</div>
-                        <p>💵 Курьеру: ${order.deliveryFee} сомони</p>
+                        <p><strong>${order.clientName || 'Без имени'}</strong> | 📞 ${order.clientPhone || 'Нет телефона'}</p>
+                        <p>📍 ${order.address || 'Нет адреса'}</p>
+                        <div class="items-list">📦 ${order.items ? order.items.map(i => i.name).join(', ') : 'Нет товаров'}</div>
+                        <p>💵 Курьеру: ${order.deliveryFee || 10} сомони</p>
                         ${order.comment ? `<p>📝 Комментарий: ${order.comment}</p>` : ''}
                         <div class="flex">
                             ${actions}
-                            <button class="call-btn" onclick="callClient('${order.clientPhone}')">📞 Позвонить</button>
+                            <button class="call-btn" onclick="callClient('${order.clientPhone || ''}')">📞 Позвонить</button>
                         </div>
                     </div>
                 `;
@@ -258,16 +263,16 @@
                 courierId: currentUser.uid,
                 courierName: userName
             });
+            await refreshData();
         };
         
         window.updateOrderStatus = async function(orderId, newStatus) {
-            await updateDoc(doc(db, 'orders', orderId), {
-                status: newStatus
-            });
+            await updateDoc(doc(db, 'orders', orderId), { status: newStatus });
+            await refreshData();
         };
         
         window.callClient = function(phone) {
-            window.location.href = `tel:${phone}`;
+            if (phone) window.location.href = `tel:${phone}`;
         };
         
         window.logout = async function() {
