@@ -87,7 +87,7 @@
             flex-wrap: wrap;
             margin-bottom: 20px;
         }
-        .add-form input, .add-form select {
+        .add-form input {
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -102,17 +102,6 @@
         }
         .btn-danger { background: #e53e3e; }
         .btn-small { padding: 5px 10px; font-size: 12px; }
-        .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 600;
-        }
-        .badge-new { background: #fef5e7; color: #f39c12; }
-        .badge-accepted { background: #e3f2fd; color: #2196f3; }
-        .badge-bought { background: #e8f5e9; color: #4caf50; }
-        .badge-delivered { background: #c8e6c9; color: #2e7d32; }
         .search {
             margin-bottom: 15px;
             padding: 10px;
@@ -121,6 +110,7 @@
             border: 1px solid #ddd;
             border-radius: 8px;
         }
+        .refresh-btn { background: #2196f3; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -133,6 +123,8 @@
     </div>
     
     <div class="container">
+        <button class="refresh-btn" onclick="refreshAll()">🔄 Обновить все данные</button>
+        
         <div class="stats" id="stats"></div>
         
         <div class="tabs">
@@ -199,7 +191,7 @@
     <script type="module">
         import { 
             db, auth, collection, getDocs, doc, updateDoc, addDoc, deleteDoc,
-            onSnapshot, signOut, getDoc 
+            signOut, getDoc 
         } from './app.js';
         
         let allOrders = [];
@@ -218,36 +210,46 @@
                 return;
             }
             document.getElementById('userName').textContent = userDoc.data()?.name || user.email;
-            loadAllData();
+            refreshAll();
         });
         
-        async function loadAllData() {
+        window.refreshAll = async function() {
             await Promise.all([loadOrders(), loadProducts(), loadUsers()]);
-            loadStats();
-        }
+        };
         
         async function loadOrders() {
+            console.log('Загрузка заказов...');
             const snapshot = await getDocs(collection(db, 'orders'));
             allOrders = [];
-            snapshot.forEach(doc => allOrders.push({ id: doc.id, ...doc.data() }));
+            snapshot.forEach(doc => {
+                allOrders.push({ id: doc.id, ...doc.data() });
+                console.log('Заказ:', doc.id, doc.data());
+            });
             renderOrders();
+            loadStats();
+            return allOrders;
         }
         
         function renderOrders() {
             const search = document.getElementById('searchOrders')?.value.toLowerCase() || '';
             const filtered = allOrders.filter(order => 
-                order.clientName?.toLowerCase().includes(search) ||
-                order.address?.toLowerCase().includes(search) ||
-                order.clientPhone?.toLowerCase().includes(search)
+                (order.clientName || '').toLowerCase().includes(search) ||
+                (order.address || '').toLowerCase().includes(search) ||
+                (order.clientPhone || '').toLowerCase().includes(search)
             );
             
             const tbody = document.getElementById('orders-tbody');
+            if (filtered.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Нет заказов</td></tr>';
+                return;
+            }
+            
             tbody.innerHTML = filtered.map(order => `
                 <tr>
                     <td><small>${order.id.slice(0,8)}</small></td>
-                    <td>${order.clientName}<br><small>${order.clientPhone}</small></td>
-                    <td>${order.address}</td>
-                    <td>${order.total} сомони</td>
+                    <td>${order.clientName || '—'}<br><small>${order.clientPhone || '—'}</small></td>
+                    <td>${order.address || '—'}</td>
+                    <td>${order.total || 0} сомони</td>
                     <td>${order.courierName || '—'}</td>
                     <td>
                         <select class="status-select" onchange="updateOrderStatus('${order.id}', this.value)">
@@ -284,6 +286,10 @@
         
         function renderProducts() {
             const tbody = document.getElementById('products-tbody');
+            if (allProducts.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">Нет товаров</td></tr>';
+                return;
+            }
             tbody.innerHTML = allProducts.map(p => `
                 <tr>
                     <td>${p.name}</td>
@@ -335,6 +341,10 @@
             });
             
             const tbody = document.getElementById('couriers-tbody');
+            if (couriers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Нет курьеров</td></tr>';
+                return;
+            }
             tbody.innerHTML = couriers.map(c => {
                 const stats = courierStats[c.id] || { count: 0, total: 0 };
                 return `<tr>
@@ -360,6 +370,10 @@
             });
             
             const tbody = document.getElementById('clients-tbody');
+            if (clients.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Нет клиентов</td></tr>';
+                return;
+            }
             tbody.innerHTML = clients.map(c => {
                 const stats = clientStats[c.id] || { count: 0, total: 0 };
                 return `<tr>
