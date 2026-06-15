@@ -12,34 +12,34 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Inter:wght@300;400;500;600;700&display=swap"/>
 <style>
 :root{
-  --bg:#f5f6fa;--s1:#ffffff;--s2:#f0f1f6;--s3:#e8eaf2;--s4:#dde0ee;
+  --bg:#f4f5f9;--s1:#ffffff;--s2:#eef0f6;--s3:#e4e7f2;--s4:#d8dced;
   --b0:rgba(0,0,0,.07);--b1:rgba(0,0,0,.11);--b2:rgba(0,0,0,.18);
-  --acc:#e8441a;--acc2:#f06030;--accd:rgba(232,68,26,.10);--accg:rgba(232,68,26,.22);
+  --acc:#e8441a;--acc2:#f06030;--accd:rgba(232,68,26,.10);--accg:rgba(232,68,26,.20);
   --green:#16a34a;--greend:rgba(22,163,74,.10);--greeng:rgba(22,163,74,.22);
   --red:#dc2626;--redd:rgba(220,38,38,.10);
   --yellow:#d97706;--blue:#2563eb;
-  --tx:#1a1b1f;--tx2:#4b5068;--tx3:#9299b0;--muted2:#e0e3f0;
+  --tx:#191a1f;--tx2:#4a5068;--tx3:#9299b0;
   --fd:'Nunito',sans-serif;--fs:'Inter',system-ui,sans-serif;
   --ease:cubic-bezier(.32,0,.18,1);--spring:cubic-bezier(.34,1.56,.64,1);
   --t:.22s;--tf:.13s;
   --sw:260px;--th:58px;--nb:66px;
   --safe-b:env(safe-area-inset-bottom,0px);
-  --shadow:0 1px 4px rgba(0,0,0,.07),0 4px 16px rgba(0,0,0,.06);
-  --shadow-md:0 4px 24px rgba(0,0,0,.10),0 1px 4px rgba(0,0,0,.06);
+  --shadow:0 1px 3px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.05);
+  --shadow-md:0 4px 20px rgba(0,0,0,.09),0 1px 4px rgba(0,0,0,.05);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{height:100%;-webkit-text-size-adjust:100%}
-body{background:var(--bg);color:var(--tx);font-family:var(--fs);font-weight:400;min-height:100svh;overflow:hidden;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{background:var(--bg);color:var(--tx);font-family:var(--fs);font-weight:400;min-height:100svh;overflow:hidden;-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
 ::selection{background:var(--acc);color:#fff}
-::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--s4);border-radius:99px}
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--s4);border-radius:99px}
 .app{display:flex;height:100svh}
 
-/* ─── SIDEBAR ─── */
-.sb{width:var(--sw);flex-shrink:0;background:var(--s1);border-right:1px solid var(--b0);display:flex;flex-direction:column;position:relative;z-index:100;overflow:hidden;transition:transform var(--t) var(--ease);box-shadow:2px 0 12px rgba(0,0,0,.04)}
+/* ── SIDEBAR ── */
+.sb{width:var(--sw);flex-shrink:0;background:var(--s1);border-right:1px solid var(--b0);display:flex;flex-direction:column;z-index:100;overflow:hidden;transition:transform var(--t) var(--ease);box-shadow:2px 0 12px rgba(0,0,0,.03)}
 .sb-logo{padding:18px 18px 14px;border-bottom:1px solid var(--b0);display:flex;align-items:center;gap:10px}
-.sb-logo-mark{width:34px;height:34px;flex-shrink:0;background:linear-gradient(135deg,var(--acc),var(--acc2));border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 12px rgba(232,68,26,.35)}
-.sb-logo-text{font-family:var(--fd);font-weight:900;font-size:.9rem;letter-spacing:-.01em;color:var(--tx);line-height:1.1}
+.sb-logo-mark{width:34px;height:34px;flex-shrink:0;background:linear-gradient(135deg,var(--acc),var(--acc2));border-radius:10px;display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 4px 12px rgba(232,68,26,.32)}
+.sb-logo-text{font-family:var(--fd);font-weight:900;font-size:.9rem;color:var(--tx);line-height:1.1}
 .sb-logo-text em{color:var(--acc);font-style:normal}
 .sb-logo-sub{font-size:.44rem;letter-spacing:.26em;text-transform:uppercase;color:var(--tx3);margin-top:2px}
 .sb-addr{margin:10px 14px 8px;padding:10px 13px;background:var(--s2);border:1px solid var(--b0);border-radius:10px;cursor:pointer;display:flex;align-items:center;gap:9px;transition:border-color var(--tf),background var(--tf)}
@@ -59,7 +59,7 @@ a{color:inherit;text-decoration:none}
 .ni-badge{margin-left:auto;min-width:18px;height:18px;padding:0 5px;background:var(--acc);color:#fff;font-size:.5rem;font-weight:700;display:flex;align-items:center;justify-content:center;border-radius:99px;animation:bPop .3s var(--spring) both}
 .ni-badge.g{background:var(--green)}
 @keyframes bPop{from{transform:scale(0)}to{transform:scale(1)}}
-.sb-promo{margin:0 14px 8px;padding:12px 14px;background:linear-gradient(135deg,rgba(232,68,26,.08),rgba(240,96,48,.03));border:1px solid var(--accg);border-radius:10px}
+.sb-promo{margin:0 14px 8px;padding:12px 14px;background:linear-gradient(135deg,rgba(232,68,26,.07),rgba(240,96,48,.02));border:1px solid var(--accg);border-radius:10px}
 .sb-promo-t{font-size:.7rem;font-weight:700;color:var(--tx);margin-bottom:3px}
 .sb-promo-d{font-size:.6rem;color:var(--tx3);line-height:1.5}
 .sb-promo em{color:var(--acc);font-style:normal;font-weight:700}
@@ -73,66 +73,77 @@ a{color:inherit;text-decoration:none}
 .sb-logout{background:none;border:none;cursor:pointer;color:var(--tx3);padding:6px;border-radius:6px;flex-shrink:0;transition:all var(--tf)}
 .sb-logout:hover{color:var(--red);background:var(--redd)}
 
-/* ─── MAIN ─── */
+/* ── MAIN ── */
 .main{flex:1;overflow:hidden;display:flex;flex-direction:column;min-width:0}
-.topbar{height:var(--th);flex-shrink:0;background:rgba(245,246,250,.92);backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border-bottom:1px solid var(--b0);display:flex;align-items:center;padding:0 20px;gap:12px;position:relative;z-index:50}
+.topbar{height:var(--th);flex-shrink:0;background:rgba(244,245,249,.94);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid var(--b0);display:flex;align-items:center;padding:0 20px;gap:12px;z-index:50}
 .tb-title{font-family:var(--fd);font-weight:900;font-size:.92rem;color:var(--tx);flex:1;letter-spacing:-.01em}
 .tb-title em{color:var(--acc);font-style:normal}
-.tb-search{display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--b0);border-radius:10px;padding:7px 13px;flex:1;max-width:320px;transition:border-color var(--tf),box-shadow var(--tf);box-shadow:var(--shadow)}
-.tb-search:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--accd)}
-.tb-search input{background:none;border:none;outline:none;color:var(--tx);font-family:var(--fs);font-size:.78rem;width:100%}
-.tb-search input::placeholder{color:var(--tx3)}
-.tb-search svg{color:var(--tx3);flex-shrink:0}
-.tb-cart{position:relative;background:var(--acc);border:none;border-radius:10px;cursor:pointer;color:#fff;padding:8px 15px;display:flex;align-items:center;gap:7px;font-size:.7rem;font-family:var(--fd);font-weight:800;transition:all var(--tf);white-space:nowrap;box-shadow:0 2px 10px rgba(232,68,26,.3)}
-.tb-cart:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(232,68,26,.4)}
+.tb-search-top{display:flex;align-items:center;gap:8px;background:var(--s1);border:1.5px solid var(--b0);border-radius:10px;padding:7px 13px;flex:1;max-width:320px;transition:border-color var(--tf),box-shadow var(--tf);box-shadow:var(--shadow)}
+.tb-search-top:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--accd)}
+.tb-search-top input{background:none;border:none;outline:none;color:var(--tx);font-family:var(--fs);font-size:.78rem;width:100%}
+.tb-search-top input::placeholder{color:var(--tx3)}
+.tb-search-top svg{color:var(--tx3);flex-shrink:0}
+.tb-cart{background:var(--acc);border:none;border-radius:10px;cursor:pointer;color:#fff;padding:8px 15px;display:flex;align-items:center;gap:7px;font-size:.7rem;font-family:var(--fd);font-weight:800;transition:all var(--tf);white-space:nowrap;box-shadow:0 2px 10px rgba(232,68,26,.28)}
+.tb-cart:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(232,68,26,.38)}
 .tb-cart-cnt{background:rgba(255,255,255,.25);border-radius:99px;padding:1px 7px;font-size:.6rem;font-weight:700}
 .mob-btn{display:none;background:none;border:none;cursor:pointer;color:var(--tx3);width:36px;height:36px;border-radius:10px;align-items:center;justify-content:center;transition:all var(--tf)}
 .mob-btn:hover{background:var(--s2);color:var(--tx)}
 
-/* ─── PAGES ─── */
+/* ── PAGES ── */
 .pages{flex:1;overflow-y:auto}
 .page{display:none;padding:22px 22px 36px;animation:pgIn .25s var(--ease) both;max-width:1080px}
 .page.active{display:block}
-@keyframes pgIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
-/* ─── SHARED ─── */
+/* ── SHARED ── */
 .sh{display:flex;align-items:flex-end;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
 .sh-tag{font-size:.44rem;letter-spacing:.28em;text-transform:uppercase;color:var(--tx3);margin-bottom:3px}
-.sh-title{font-family:var(--fd);font-weight:900;font-size:1.25rem;color:var(--tx);letter-spacing:-.02em;line-height:1}
+.sh-title{font-family:var(--fd);font-weight:900;font-size:1.2rem;color:var(--tx);letter-spacing:-.02em;line-height:1}
 .sh-title em{color:var(--acc);font-style:normal}
 .sh-link{font-size:.68rem;color:var(--tx3);border:none;background:none;cursor:pointer;font-family:var(--fs);transition:color var(--tf);padding:0;font-weight:500}
 .sh-link:hover{color:var(--acc)}
 
-/* ─── HERO ─── */
-.hero-banner{background:linear-gradient(135deg,#fff5f2,#fff9f7);border:1.5px solid var(--accg);border-radius:18px;padding:28px 32px;margin-bottom:20px;position:relative;overflow:hidden;box-shadow:var(--shadow-md)}
-.hero-banner::before{content:'';position:absolute;right:0;top:0;width:260px;height:100%;background:radial-gradient(ellipse 120% 120% at 100% 50%,rgba(232,68,26,.07),transparent 70%);pointer-events:none}
-.hero-tag{font-size:.48rem;letter-spacing:.28em;text-transform:uppercase;color:var(--acc);margin-bottom:8px;font-weight:700}
-.hero-title{font-family:var(--fd);font-weight:900;font-size:1.7rem;color:var(--tx);letter-spacing:-.03em;line-height:1.06;margin-bottom:9px}
-.hero-title em{color:var(--acc);font-style:normal}
-.hero-desc{font-size:.78rem;color:var(--tx2);max-width:340px;line-height:1.65}
-.hero-emoji{position:absolute;right:30px;top:50%;transform:translateY(-50%);font-size:4.2rem;opacity:.15;user-select:none;pointer-events:none}
-.hero-badges{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
-.hero-badge{display:flex;align-items:center;gap:5px;padding:5px 12px;background:rgba(255,255,255,.8);border:1px solid var(--b0);border-radius:99px;font-size:.62rem;font-weight:600;color:var(--tx2);backdrop-filter:blur(8px)}
+/* ── SEARCH HERO ── */
+.search-hero{margin-bottom:24px}
+.search-hero-label{font-family:var(--fd);font-weight:900;font-size:1.55rem;color:var(--tx);letter-spacing:-.03em;line-height:1.1;margin-bottom:4px}
+.search-hero-label em{color:var(--acc);font-style:normal}
+.search-hero-sub{font-size:.76rem;color:var(--tx3);margin-bottom:16px}
+.search-box{display:flex;align-items:center;gap:10px;background:var(--s1);border:2px solid var(--b0);border-radius:16px;padding:14px 18px;box-shadow:var(--shadow-md);transition:border-color .18s,box-shadow .18s;position:relative}
+.search-box:focus-within{border-color:var(--acc);box-shadow:0 0 0 4px var(--accd),var(--shadow-md)}
+.search-box svg{color:var(--tx3);flex-shrink:0;transition:color .15s}
+.search-box:focus-within svg{color:var(--acc)}
+.search-box input{background:none;border:none;outline:none;color:var(--tx);font-family:var(--fs);font-size:.95rem;width:100%;font-weight:500}
+.search-box input::placeholder{color:var(--tx3)}
+.search-clear{background:var(--s2);border:none;border-radius:8px;cursor:pointer;color:var(--tx3);width:28px;height:28px;display:none;align-items:center;justify-content:center;flex-shrink:0;transition:all .13s}
+.search-clear:hover{background:var(--s3);color:var(--tx)}
+.search-clear.show{display:flex}
+.search-results-dropdown{position:absolute;top:calc(100% + 8px);left:0;right:0;background:var(--s1);border:1.5px solid var(--b0);border-radius:14px;box-shadow:var(--shadow-md);z-index:200;overflow:hidden;display:none;animation:pgIn .18s var(--ease) both}
+.search-results-dropdown.open{display:block}
+.srd-item{display:flex;align-items:center;gap:12px;padding:11px 16px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--b0)}
+.srd-item:last-child{border-bottom:none}
+.srd-item:hover{background:var(--s2)}
+.srd-img{width:40px;height:40px;border-radius:8px;background:var(--s2);flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.srd-img img{width:100%;height:100%;object-fit:cover}
+.srd-img svg{opacity:.3}
+.srd-info{flex:1;min-width:0}
+.srd-name{font-weight:600;font-size:.8rem;color:var(--tx)}
+.srd-cat{font-size:.62rem;color:var(--tx3);margin-top:1px}
+.srd-price{font-family:var(--fd);font-weight:900;font-size:.88rem;color:var(--acc);flex-shrink:0}
+.srd-empty{padding:22px;text-align:center;color:var(--tx3);font-size:.76rem}
 
-/* ─── CAT PANELS (home) ─── */
-.cat-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
-.cat-panel{background:var(--s1);border:1.5px solid var(--b0);border-radius:14px;padding:16px 14px;cursor:pointer;transition:all var(--tf);text-align:center;box-shadow:var(--shadow)}
-.cat-panel:hover{border-color:var(--acc);transform:translateY(-2px);box-shadow:var(--shadow-md)}
-.cat-panel-ico{font-size:2rem;margin-bottom:7px;display:block}
-.cat-panel-name{font-size:.72rem;font-weight:700;color:var(--tx);letter-spacing:-.01em}
-.cat-panel-count{font-size:.58rem;color:var(--tx3);margin-top:2px}
+/* ── CATEGORY PANELS ── */
+.cat-panels{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:28px}
+.cat-panel{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:18px 14px 16px;cursor:pointer;transition:all .18s var(--ease);text-align:center;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.cat-panel::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--cat-c,var(--acc)),transparent 70%);opacity:0;transition:opacity .18s}
+.cat-panel:hover{border-color:var(--cat-c,var(--acc));transform:translateY(-3px);box-shadow:0 8px 28px rgba(0,0,0,.11)}
+.cat-panel:hover::after{opacity:.05}
+.cat-panel-ico{width:48px;height:48px;border-radius:14px;background:var(--cat-bg,var(--accd));display:flex;align-items:center;justify-content:center;margin:0 auto 10px;transition:transform .2s var(--spring)}
+.cat-panel:hover .cat-panel-ico{transform:scale(1.1)}
+.cat-panel-ico svg{display:block}
+.cat-panel-name{font-size:.76rem;font-weight:800;color:var(--tx);letter-spacing:-.01em;font-family:var(--fd)}
+.cat-panel-count{font-size:.58rem;color:var(--tx3);margin-top:3px}
 
-/* ─── STATS ─── */
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
-.sc{background:var(--s1);border:1.5px solid var(--b0);border-radius:14px;padding:15px 16px;position:relative;overflow:hidden;transition:border-color var(--tf),transform var(--t),box-shadow var(--t);box-shadow:var(--shadow)}
-.sc:hover{border-color:var(--b1);transform:translateY(-1px);box-shadow:var(--shadow-md)}
-.sc-lbl{font-size:.46rem;letter-spacing:.18em;text-transform:uppercase;color:var(--tx3);margin-bottom:7px;font-weight:600}
-.sc-val{font-family:var(--fd);font-size:1.55rem;font-weight:900;color:var(--tx);line-height:1;letter-spacing:-.03em}
-.sc-val span{color:var(--acc)}
-.sc-sub{font-size:.58rem;color:var(--tx3);margin-top:4px}
-.sc-ico{position:absolute;right:12px;bottom:8px;font-size:1.7rem;opacity:.08;pointer-events:none}
-
-/* ─── LIVE BANNER ─── */
+/* ── LIVE BANNER ── */
 .live-banner{background:linear-gradient(135deg,rgba(232,68,26,.07),rgba(240,96,48,.02));border:1.5px solid var(--accg);border-radius:14px;padding:14px 18px;margin-bottom:18px;display:flex;align-items:center;gap:13px;cursor:pointer;transition:all var(--tf);box-shadow:var(--shadow)}
 .live-banner:hover{border-color:var(--acc);transform:translateY(-1px);box-shadow:var(--shadow-md)}
 .live-pulse{width:9px;height:9px;border-radius:50%;background:var(--acc);flex-shrink:0;animation:lp 1.8s ease-in-out infinite}
@@ -141,44 +152,41 @@ a{color:inherit;text-decoration:none}
 .live-lbl{font-size:.46rem;letter-spacing:.22em;text-transform:uppercase;color:var(--acc);margin-bottom:2px;font-weight:700}
 .live-txt{font-size:.8rem;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
-/* ─── CATEGORY PILLS ─── */
+/* ── CATALOG CAT PILLS ── */
 .cats{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
-.cat{padding:7px 16px;border-radius:99px;border:1.5px solid var(--b0);background:var(--s1);cursor:pointer;color:var(--tx3);font-size:.7rem;font-family:var(--fs);font-weight:600;transition:all var(--tf);letter-spacing:.01em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.cat{padding:7px 16px;border-radius:99px;border:1.5px solid var(--b0);background:var(--s1);cursor:pointer;color:var(--tx3);font-size:.7rem;font-family:var(--fs);font-weight:600;transition:all var(--tf);white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.04)}
 .cat:hover{border-color:var(--acc);color:var(--acc);background:#fff8f6}
 .cat.active{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 2px 10px rgba(232,68,26,.25)}
 
-/* ─── PRODUCT GRID — 2 cols fixed ─── */
+/* ── PRODUCT GRID ── */
 .pg{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .pc{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;overflow:hidden;cursor:pointer;display:flex;flex-direction:column;transition:border-color var(--tf),transform var(--t),box-shadow var(--t);box-shadow:var(--shadow)}
 .pc:hover{border-color:var(--acc);transform:translateY(-3px);box-shadow:var(--shadow-md)}
-.pc-img{aspect-ratio:1/1;width:100%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:3.6rem;flex-shrink:0;position:relative;overflow:hidden}
+.pc-img{aspect-ratio:1/1;width:100%;background:var(--s2);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden}
 .pc-img img{width:100%;height:100%;object-fit:cover}
-.pc-img-ph{opacity:.22;user-select:none}
+.pc-img-ph{opacity:.18;user-select:none}
 .pc-badge{position:absolute;top:10px;left:10px;background:var(--red);color:#fff;font-size:.48rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px}
 .pc-body{padding:12px 14px 14px;flex:1;display:flex;flex-direction:column;gap:4px}
 .pc-cat{font-size:.48rem;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);font-weight:700}
 .pc-name{font-weight:700;font-size:.88rem;color:var(--tx);line-height:1.3;flex:1}
 .pc-desc{font-size:.66rem;color:var(--tx3);line-height:1.5;margin-bottom:4px}
 .pc-footer{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto;padding-top:10px;border-top:1px solid var(--b0)}
-.pc-price{font-family:var(--fd);font-weight:900;font-size:1rem;color:var(--tx);letter-spacing:-.01em}
+.pc-price{font-family:var(--fd);font-weight:900;font-size:1rem;color:var(--tx)}
 .pc-price span{font-size:.62rem;color:var(--tx3);font-family:var(--fs);font-weight:400}
-
-/* in-card qty controls */
-.pc-qty{display:flex;align-items:center;gap:0;background:var(--s2);border:1.5px solid var(--b0);border-radius:10px;overflow:hidden;transition:border-color var(--tf)}
-.pc-qty:has(.pc-qty-val:not([data-zero])){border-color:var(--accg)}
+.pc-qty{display:flex;align-items:center;background:var(--s2);border:1.5px solid var(--accg);border-radius:10px;overflow:hidden}
 .pc-qty-btn{width:32px;height:32px;background:none;border:none;cursor:pointer;color:var(--tx3);font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:color var(--tf),background var(--tf);flex-shrink:0}
 .pc-qty-btn:hover{color:var(--acc);background:var(--accd)}
 .pc-qty-val{min-width:30px;height:32px;text-align:center;line-height:32px;font-size:.8rem;font-weight:700;color:var(--tx);border-inline:1px solid var(--b0)}
-.add-btn{width:32px;height:32px;border-radius:10px;background:var(--acc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;transition:opacity var(--tf),transform var(--tf),background var(--tf);box-shadow:0 2px 8px rgba(232,68,26,.3)}
+.add-btn{width:32px;height:32px;border-radius:10px;background:var(--acc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;transition:opacity var(--tf),transform var(--tf);box-shadow:0 2px 8px rgba(232,68,26,.3)}
 .add-btn:hover{opacity:.88;transform:scale(1.08)}
 .add-btn:active{transform:scale(.95)}
 .add-btn:disabled{opacity:.3;cursor:not-allowed;transform:none;box-shadow:none}
 
-/* ─── CART ─── */
+/* ── CART ── */
 .cart-layout{display:grid;grid-template-columns:1fr 296px;gap:18px;align-items:start}
 .ci{background:var(--s1);border:1.5px solid var(--b0);border-radius:12px;padding:13px 15px;display:flex;align-items:center;gap:13px;margin-bottom:8px;transition:border-color var(--tf);box-shadow:var(--shadow)}
 .ci:hover{border-color:var(--b1)}
-.ci-img{width:52px;height:52px;border-radius:10px;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0;overflow:hidden}
+.ci-img{width:52px;height:52px;border-radius:10px;background:var(--s2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
 .ci-img img{width:100%;height:100%;object-fit:cover}
 .ci-info{flex:1;min-width:0}
 .ci-name{font-weight:700;font-size:.82rem;color:var(--tx);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -190,7 +198,7 @@ a{color:inherit;text-decoration:none}
 .ci-total{font-family:var(--fd);font-weight:900;font-size:.95rem;color:var(--tx);min-width:60px;text-align:right;flex-shrink:0}
 .ci-del{background:none;border:none;cursor:pointer;color:var(--tx3);padding:5px;border-radius:6px;transition:all var(--tf);flex-shrink:0}
 .ci-del:hover{color:var(--red);background:var(--redd)}
-.cs{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:20px 22px;position:sticky;top:0;overflow:hidden;box-shadow:var(--shadow)}
+.cs{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:20px 22px;position:sticky;top:0;box-shadow:var(--shadow)}
 .cs-row{display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:var(--tx2);margin-bottom:9px}
 .cs-row.total{margin-top:14px;padding-top:14px;border-top:1.5px solid var(--b0);color:var(--tx);font-weight:600;margin-bottom:0}
 .cs-row.total .price{font-family:var(--fd);font-weight:900;font-size:1.2rem;color:var(--acc)}
@@ -198,13 +206,13 @@ a{color:inherit;text-decoration:none}
 .addr-inp{width:100%;background:var(--s2);border:1.5px solid var(--b0);border-radius:9px;color:var(--tx);font-family:var(--fs);font-size:.8rem;padding:9px 13px;outline:none;transition:border-color var(--tf),box-shadow var(--tf);margin-bottom:8px}
 .addr-inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accd)}
 .addr-inp::placeholder{color:var(--tx3)}
-select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239299b0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
-.checkout-btn{width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:10px;color:#fff;font-family:var(--fd);font-weight:900;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(232,68,26,.35);transition:opacity var(--tf),box-shadow var(--tf),transform var(--tf);display:flex;align-items:center;justify-content:center;gap:8px}
-.checkout-btn:hover{opacity:.92;box-shadow:0 6px 24px rgba(232,68,26,.5);transform:translateY(-1px)}
+select.addr-inp{cursor:pointer}
+.checkout-btn{width:100%;margin-top:14px;padding:13px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:10px;color:#fff;font-family:var(--fd);font-weight:900;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;box-shadow:0 4px 16px rgba(232,68,26,.32);transition:opacity var(--tf),box-shadow var(--tf),transform var(--tf);display:flex;align-items:center;justify-content:center;gap:8px}
+.checkout-btn:hover{opacity:.92;box-shadow:0 6px 24px rgba(232,68,26,.48);transform:translateY(-1px)}
 .checkout-btn:active{transform:scale(.98)}
 .checkout-btn:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
 
-/* ─── ORDERS ─── */
+/* ── ORDERS ── */
 .oc{background:var(--s1);border:1.5px solid var(--b0);border-radius:14px;padding:15px 17px;margin-bottom:9px;transition:border-color var(--tf);position:relative;overflow:hidden;box-shadow:var(--shadow)}
 .oc:hover{border-color:var(--b1)}
 .oc::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px}
@@ -221,11 +229,11 @@ select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/
 .btn-sm{padding:5px 13px;background:none;border:1.5px solid var(--b1);border-radius:7px;color:var(--tx3);font-size:.62rem;font-family:var(--fs);cursor:pointer;transition:all var(--tf);letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;font-weight:600}
 .btn-sm:hover{border-color:var(--b2);color:var(--tx)}
 .btn-sm.danger:hover{border-color:rgba(220,38,38,.4);color:var(--red);background:var(--redd)}
-.btn-sm.primary{background:var(--acc);border-color:var(--acc);color:#fff;box-shadow:0 2px 8px rgba(232,68,26,.25)}
+.btn-sm.primary{background:var(--acc);border-color:var(--acc);color:#fff}
 .btn-sm.primary:hover{opacity:.88}
 
-/* ─── STATUS TRACKER ─── */
-.track{display:flex;position:relative;margin:22px 0}
+/* ── STATUS ── */
+.track{display:flex;margin:22px 0}
 .track-step{flex:1;display:flex;flex-direction:column;align-items:center;position:relative}
 .track-step:not(:last-child)::after{content:'';position:absolute;top:12px;left:calc(50% + 12px);right:calc(-50% + 12px);height:2px;background:var(--b1);transition:background .4s}
 .track-step.done:not(:last-child)::after{background:var(--acc)}
@@ -236,9 +244,9 @@ select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/
 .track-lbl{font-size:.52rem;text-align:center;color:var(--tx3);letter-spacing:.04em;line-height:1.3}
 .track-step.done .track-lbl,.track-step.cur .track-lbl{color:var(--tx2);font-weight:600}
 
-/* ─── PROFILE ─── */
+/* ── PROFILE ── */
 .pg2{display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start}
-.pcard{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:24px 18px;text-align:center;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.pcard{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:24px 18px;text-align:center;box-shadow:var(--shadow)}
 .p-av{width:70px;height:70px;border-radius:50%;background:var(--accd);border:3px solid var(--accg);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--acc);margin:0 auto 12px;overflow:hidden}
 .p-av img{width:100%;height:100%;object-fit:cover}
 .p-name{font-family:var(--fd);font-weight:900;font-size:1.05rem;color:var(--tx);margin-bottom:2px}
@@ -256,7 +264,7 @@ select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/
 .fi::placeholder{color:var(--tx3)}
 .fi:read-only{opacity:.4;cursor:not-allowed}
 .fr2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.btn-primary{padding:10px 20px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:9px;color:#fff;font-size:.62rem;font-family:var(--fs);font-weight:700;cursor:pointer;transition:opacity var(--tf);letter-spacing:.04em;text-transform:uppercase;box-shadow:0 3px 10px rgba(232,68,26,.25)}
+.btn-primary{padding:10px 20px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:9px;color:#fff;font-size:.62rem;font-family:var(--fs);font-weight:700;cursor:pointer;transition:opacity var(--tf);letter-spacing:.04em;text-transform:uppercase;box-shadow:0 3px 10px rgba(232,68,26,.22)}
 .btn-primary:hover{opacity:.88}
 .btn-outline{padding:10px 20px;background:none;border:1.5px solid var(--b1);border-radius:9px;color:var(--tx3);font-size:.62rem;font-family:var(--fs);cursor:pointer;transition:all var(--tf);letter-spacing:.04em;text-transform:uppercase;font-weight:600}
 .btn-outline:hover{border-color:var(--b2);color:var(--tx)}
@@ -269,27 +277,25 @@ select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/
 .spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--s3);border-top-color:var(--acc);animation:sp .7s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .divider{height:1px;background:var(--b0);margin:16px 0}
-
-/* ─── TOAST ─── */
 .toast-wrap{position:fixed;bottom:22px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:7px;pointer-events:none}
-.toast{background:rgba(255,255,255,.97);backdrop-filter:blur(20px);border:1.5px solid var(--b1);border-radius:12px;padding:11px 16px;display:flex;align-items:center;gap:9px;font-size:.74rem;color:var(--tx);animation:tIn .26s var(--ease) both,tOut .26s var(--ease) forwards;animation-delay:0s,2.9s;pointer-events:all;max-width:280px;box-shadow:0 8px 28px rgba(0,0,0,.12)}
+.toast{background:rgba(255,255,255,.97);backdrop-filter:blur(20px);border:1.5px solid var(--b1);border-radius:12px;padding:11px 16px;display:flex;align-items:center;gap:9px;font-size:.74rem;color:var(--tx);animation:tIn .26s var(--ease) both,tOut .26s var(--ease) forwards;animation-delay:0s,2.9s;pointer-events:all;max-width:280px;box-shadow:0 8px 28px rgba(0,0,0,.1)}
 @keyframes tIn{from{opacity:0;transform:translateY(9px) scale(.96)}to{opacity:1;transform:none}}
 @keyframes tOut{to{opacity:0;transform:translateY(9px) scale(.96)}}
 .tdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--acc)}
 .toast.ok .tdot{background:var(--green)}.toast.err .tdot{background:var(--red)}.toast.info .tdot{background:var(--blue)}
 
-/* ─── MOBILE ─── */
+/* ── MOBILE ── */
 .mob-nav{display:none}
-.sb-overlay{display:none;position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.45);backdrop-filter:blur(4px)}
+.sb-overlay{display:none;position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.4);backdrop-filter:blur(4px)}
 @media(max-width:860px){
-  .sb{position:fixed;left:0;top:0;bottom:0;z-index:200;transform:translateX(-110%);box-shadow:none}
-  .sb.open{transform:translateX(0);box-shadow:20px 0 60px rgba(0,0,0,.15)}
+  .sb{position:fixed;left:0;top:0;bottom:0;z-index:200;transform:translateX(-110%)}
+  .sb.open{transform:translateX(0);box-shadow:20px 0 60px rgba(0,0,0,.12)}
   .sb-overlay.open{display:block}
   .mob-btn{display:flex}
-  .tb-search{display:none}
+  .tb-search-top{display:none}
   .pages{padding-bottom:0}
   .page{padding:14px 14px calc(var(--nb) + var(--safe-b) + 14px)}
-  .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(255,255,255,.97);backdrop-filter:blur(28px) saturate(1.6);-webkit-backdrop-filter:blur(28px) saturate(1.6);border-top:1.5px solid var(--b0);padding-bottom:var(--safe-b);height:calc(var(--nb) + var(--safe-b));box-shadow:0 -4px 20px rgba(0,0,0,.08)}
+  .mob-nav{display:flex;position:fixed;bottom:0;left:0;right:0;z-index:200;background:rgba(255,255,255,.97);backdrop-filter:blur(28px);-webkit-backdrop-filter:blur(28px);border-top:1.5px solid var(--b0);padding-bottom:var(--safe-b);height:calc(var(--nb) + var(--safe-b));box-shadow:0 -4px 20px rgba(0,0,0,.07)}
   .mn-inner{display:flex;align-items:stretch;width:100%}
   .mn-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;cursor:pointer;padding:10px 4px;color:var(--tx3);border:none;background:none;font-family:var(--fs);position:relative;transition:color var(--tf)}
   .mn-item svg{transition:transform .2s var(--spring)}
@@ -301,12 +307,12 @@ select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/
   .mn-badge{position:absolute;top:7px;right:calc(50% - 16px);min-width:15px;height:15px;padding:0 3px;background:var(--acc);color:#fff;font-size:.46rem;font-weight:700;border-radius:99px;display:flex;align-items:center;justify-content:center;border:2px solid #fff}
   .toast-wrap{bottom:calc(var(--nb) + var(--safe-b) + 12px);right:14px}
   .cart-layout{grid-template-columns:1fr}
-  .stats-row{grid-template-columns:1fr 1fr}
   .pg2{grid-template-columns:1fr}
   .cat-panels{grid-template-columns:repeat(2,1fr)}
   .pg{grid-template-columns:repeat(2,1fr)}
+  .search-hero-label{font-size:1.25rem}
 }
-@media(max-width:480px){.pg{grid-template-columns:repeat(2,1fr)}.stats-row{grid-template-columns:1fr 1fr}.cat-panels{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.cat-panels{grid-template-columns:repeat(2,1fr)}.pg{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:360px){.pg{grid-template-columns:1fr}}
 </style>
 </head>
@@ -347,41 +353,44 @@ select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/
   <div class="topbar">
     <button class="mob-btn" onclick="toggleSB()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h12"/></svg></button>
     <div class="tb-title" id="tb-title">Galelium <em>Delivery</em></div>
-    <div class="tb-search"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" id="search-inp" placeholder="Ҷустуҷӯи хӯрок ва маҳсулот…" oninput="onSearch(this.value)"/></div>
+    <div class="tb-search-top"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" id="search-inp-top" placeholder="Ҷустуҷӯи хӯрок…" oninput="onSearch(this.value)"/></div>
     <button class="tb-cart" onclick="goPage('cart')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>Сабад<span class="tb-cart-cnt" id="tb-cnt">0</span></button>
   </div>
   <div class="pages" id="pages">
     <!-- HOME -->
     <div class="page active" id="page-home">
       <div id="live-wrap"></div>
-      <div class="hero-banner">
-        <div class="hero-tag">Расонидани зуд · Galelium</div>
-        <div class="hero-title">Хӯроки болаззат<br>то <em>дари</em> шумо</div>
-        <div class="hero-desc">Расонидан дар 30–45 дақиқа. Маҳсулоти тоза, хӯроки гарм, нӯшокиҳо.</div>
-        <div class="hero-badges">
-          <div class="hero-badge">🕐 30–45 дақ</div>
-          <div class="hero-badge">⭐ 4.9 рейтинг</div>
-          <div class="hero-badge">🛵 Расонидан: 7 сомонӣ</div>
+
+      <!-- BIG SEARCH -->
+      <div class="search-hero">
+        <div class="search-hero-label">Чӣ <em>хӯрок</em> мехоҳед?</div>
+        <div class="search-hero-sub">Расонидан дар 30–45 дақиқа · аз 7 сомонӣ</div>
+        <div class="search-box" id="search-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="text" id="search-inp-home" placeholder="Масалан: Бургер, Пицца, Шаурма…" oninput="onHomeSearch(this.value)" onfocus="openSearchDropdown()" autocomplete="off"/>
+          <button class="search-clear" id="search-clear" onclick="clearHomeSearch()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+          <div class="search-results-dropdown" id="search-dropdown"></div>
         </div>
-        <div class="hero-emoji">🛵</div>
       </div>
-      <div class="sh"><div><div class="sh-tag">Категорияҳо</div><div class="sh-title">Аз <em>куҷо</em> фармоиш диҳем?</div></div></div>
+
+      <!-- CATEGORY PANELS -->
+      <div class="sh"><div><div class="sh-tag">Категорияҳо</div><div class="sh-title">Аз куҷо <em>фармоиш</em> диҳем?</div></div></div>
       <div class="cat-panels" id="home-cats"></div>
-      <div class="stats-row" style="margin-bottom:22px">
-        <div class="sc"><div class="sc-lbl">Фармоишҳо</div><div class="sc-val" id="st-orders"><span>—</span></div><div class="sc-sub">Ҳамаи вақт</div><div class="sc-ico">📦</div></div>
-        <div class="sc"><div class="sc-lbl">Дар сабад</div><div class="sc-val" id="st-cart"><span>—</span></div><div class="sc-sub">Мавқеъҳо</div><div class="sc-ico">🛒</div></div>
-        <div class="sc"><div class="sc-lbl">Харҷ шуд</div><div class="sc-val" id="st-spent"><span>—</span></div><div class="sc-sub">сомонӣ</div><div class="sc-ico">💳</div></div>
-        <div class="sc"><div class="sc-lbl">Ҳолат</div><div class="sc-val" id="st-active" style="font-size:1rem">—</div><div class="sc-sub" id="st-sub">Охирин фармоиш</div><div class="sc-ico">✅</div></div>
-      </div>
+
+      <!-- POPULAR -->
       <div class="sh"><div><div class="sh-tag">Машҳур</div><div class="sh-title">Хитҳои <em>меню</em></div></div><button class="sh-link" onclick="goPage('catalog')">Ҳамаи каталог →</button></div>
       <div class="pg" id="home-prods"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
     </div>
+
     <!-- CATALOG -->
     <div class="page" id="page-catalog">
       <div class="sh"><div><div class="sh-tag">Ҳамаи мавқеъҳо</div><div class="sh-title">Каталог</div></div></div>
       <div class="cats" id="cats"><button class="cat active" onclick="filterCat('all')">Ҳама</button></div>
       <div class="pg" id="cat-prods"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
     </div>
+
     <!-- CART -->
     <div class="page" id="page-cart">
       <div class="sh"><div><div class="sh-tag">Расмикунонӣ</div><div class="sh-title">Сабад</div></div><button class="sh-link" style="color:var(--red)" onclick="clearCartUI()">Тоза кардан</button></div>
@@ -400,16 +409,19 @@ select.addr-inp{cursor:pointer;appearance:none;background-image:url("data:image/
         </div></div>
       </div>
     </div>
+
     <!-- ORDERS -->
     <div class="page" id="page-orders">
       <div class="sh"><div><div class="sh-tag">Таърих</div><div class="sh-title">Фармоишҳои <em>ман</em></div></div></div>
       <div id="orders-list"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
     </div>
+
     <!-- STATUS -->
     <div class="page" id="page-status">
       <div class="sh"><div><div class="sh-tag">Пайгирӣ</div><div class="sh-title">Ҳолати <em>фармоиш</em></div></div></div>
       <div id="status-content"><div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонӣ ин ҷо намоён мешавад</div></div></div>
     </div>
+
     <!-- PROFILE -->
     <div class="page" id="page-profile">
       <div class="sh"><div><div class="sh-tag">Танзимот</div><div class="sh-title">Профил</div></div></div>
@@ -448,27 +460,45 @@ const DFEE=7;
 const SL={pending:'Интизор',confirmed:'Тасдиқ шуд',preparing:'Омода мешавад',delivering:'Дар роҳ',delivered:'Расонида шуд',cancelled:'Бекор шуд'};
 const SC={pending:'var(--yellow)',confirmed:'var(--blue)',preparing:'#9333ea',delivering:'var(--acc)',delivered:'var(--green)',cancelled:'var(--red)'};
 const STEPS=['pending','confirmed','preparing','delivering','delivered'];
-const EM={burgers:'🍔',pizza:'🍕',shawarma:'🌯',poke:'🥗',soup:'🍜',rolls:'🍱',salads:'🥙',sides:'🍟',drinks:'🥤',desserts:'🍰',default:'🍽️'};
 const CAT_NAMES_TG={burgers:'Бургерҳо',pizza:'Пицца',shawarma:'Шаурма',poke:'Поке',soup:'Шӯрбо',rolls:'Роллҳо',salads:'Салатҳо',sides:'Гарниры',drinks:'Нӯшокиҳо',desserts:'Десертҳо'};
+
+// SVG icons per category — hand-drawn style
+const CAT_SVG={
+  burgers:{color:'#e8441a',bg:'rgba(232,68,26,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="10" rx="11" ry="6" fill="#e8441a" opacity=".9"/><rect x="5" y="14" width="22" height="4" rx="2" fill="#f5a623"/><path d="M6 18 Q8 21 16 21 Q24 21 26 18" stroke="#e8441a" stroke-width="1.5" fill="none"/><rect x="5" y="21" width="22" height="4" rx="2" fill="#e8441a" opacity=".85"/></svg>`},
+  pizza:{color:'#f59e0b',bg:'rgba(245,158,11,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M16 4 L28 26 L4 26 Z" fill="#f59e0b" opacity=".9"/><path d="M16 4 L28 26" stroke="#d97706" stroke-width="1"/><circle cx="14" cy="18" r="2" fill="#dc2626"/><circle cx="20" cy="15" r="1.5" fill="#dc2626"/><circle cx="12" cy="23" r="1.5" fill="#dc2626"/><path d="M4 26 L28 26" stroke="#d97706" stroke-width="2" stroke-linecap="round"/></svg>`},
+  shawarma:{color:'#10b981',bg:'rgba(16,185,129,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M10 6 Q16 4 22 6 L24 26 Q16 28 8 26 Z" fill="#10b981" opacity=".85"/><path d="M11 12 Q16 10 21 12" stroke="#fff" stroke-width="1.5" fill="none"/><path d="M11 17 Q16 15 21 17" stroke="#f5a623" stroke-width="1.5" fill="none"/><path d="M12 22 Q16 20 20 22" stroke="#ef4444" stroke-width="1.5" fill="none"/></svg>`},
+  poke:{color:'#3b82f6',bg:'rgba(59,130,246,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><ellipse cx="16" cy="22" rx="11" ry="5" fill="#3b82f6" opacity=".2"/><path d="M5 18 Q5 8 16 8 Q27 8 27 18 L27 22 Q27 26 16 26 Q5 26 5 22 Z" fill="#3b82f6" opacity=".85"/><circle cx="12" cy="16" r="2.5" fill="#f97316"/><circle cx="20" cy="14" r="2" fill="#22c55e"/><circle cx="16" cy="18" r="2" fill="#fbbf24"/></svg>`},
+  soup:{color:'#8b5cf6',bg:'rgba(139,92,246,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M6 14 Q6 26 16 26 Q26 26 26 14 Z" fill="#8b5cf6" opacity=".85"/><rect x="4" y="12" width="24" height="4" rx="2" fill="#7c3aed"/><path d="M10 6 Q10 10 12 10" stroke="#8b5cf6" stroke-width="1.5" stroke-linecap="round" fill="none"/><path d="M16 4 Q16 9 18 9" stroke="#8b5cf6" stroke-width="1.5" stroke-linecap="round" fill="none"/><rect x="12" y="26" width="8" height="2" rx="1" fill="#7c3aed"/></svg>`},
+  rolls:{color:'#f97316',bg:'rgba(249,115,22,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="4" y="10" width="24" height="14" rx="7" fill="#f97316" opacity=".9"/><circle cx="10" cy="17" r="3" fill="#fff" opacity=".4"/><circle cx="16" cy="17" r="3" fill="#dc2626" opacity=".7"/><circle cx="22" cy="17" r="3" fill="#fff" opacity=".4"/><rect x="4" y="8" width="24" height="3" rx="1.5" fill="#ea580c"/></svg>`},
+  salads:{color:'#22c55e',bg:'rgba(34,197,94,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M8 20 Q6 12 12 8 Q16 6 20 8 Q26 12 24 20 Z" fill="#22c55e" opacity=".85"/><path d="M12 10 Q14 14 13 18" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M20 10 Q18 14 19 18" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round"/><ellipse cx="16" cy="22" rx="10" ry="4" fill="#16a34a" opacity=".6"/></svg>`},
+  sides:{color:'#eab308',bg:'rgba(234,179,8,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="8" y="10" width="5" height="14" rx="2.5" fill="#eab308"/><rect x="14" y="7" width="5" height="17" rx="2.5" fill="#eab308" opacity=".9"/><rect x="20" y="12" width="5" height="12" rx="2.5" fill="#eab308" opacity=".8"/><rect x="6" y="24" width="20" height="3" rx="1.5" fill="#ca8a04"/></svg>`},
+  drinks:{color:'#06b6d4',bg:'rgba(6,182,212,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M10 8 L12 26 L20 26 L22 8 Z" fill="#06b6d4" opacity=".85"/><rect x="9" y="6" width="14" height="3" rx="1.5" fill="#0891b2"/><path d="M12 14 Q16 16 20 14" stroke="#fff" stroke-width="1" fill="none" opacity=".5"/><circle cx="22" cy="10" r="1.5" fill="#22d3ee"/></svg>`},
+  desserts:{color:'#ec4899',bg:'rgba(236,72,153,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M6 20 Q6 28 16 28 Q26 28 26 20 L24 14 Q16 10 8 14 Z" fill="#ec4899" opacity=".85"/><path d="M8 14 Q16 8 24 14" stroke="#db2777" stroke-width="1.5" fill="none"/><circle cx="12" cy="20" r="2" fill="#fff" opacity=".5"/><circle cx="20" cy="22" r="1.5" fill="#fff" opacity=".5"/><path d="M15 8 Q16 4 17 8" stroke="#f472b6" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>`},
+  default:{color:'#64748b',bg:'rgba(100,116,139,.1)',svg:`<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="11" fill="#64748b" opacity=".15"/><path d="M10 16 Q10 10 16 10 Q22 10 22 16 Q22 22 16 22 Q10 22 10 16 Z" fill="#64748b" opacity=".6"/></svg>`}
+};
+
 onAuthStateChanged(auth,async u=>{
   if(!u){location.href='login.html';return;}
   CU=u;
   await loadUD();
   await Promise.all([loadCart(),loadProds(),loadCats(),loadOrders()]);
-  renderSB();renderStats();renderProfile();setAddr();
+  renderSB();renderProfile();setAddr();
 });
 async function loadUD(){try{const s=await getDoc(doc(db,'users',CU.uid));UD=s.exists()?s.data():{displayName:CU.displayName||'',email:CU.email,phone:'',address:'',role:'client',avatarUrl:''};}catch{UD={displayName:'',email:CU.email,phone:'',address:'',role:'client',avatarUrl:''};}}
 function renderSB(){const name=UD?.displayName||CU.email||'Муштарӣ';const init=name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';document.getElementById('sb-uname').textContent=name;const av=document.getElementById('sb-av');av.innerHTML=UD?.avatarUrl?`<img src="${UD.avatarUrl}" alt="">`:init;const adv=document.getElementById('sb-addr-val');if(UD?.address){adv.textContent=UD.address;adv.classList.remove('empty');}else{adv.textContent='Суроғ нишон диҳед →';adv.classList.add('empty');}}
 async function loadProds(){try{const s=await getDocs(query(collection(db,'products'),orderBy('name')));prods=s.docs.map(d=>({id:d.id,...d.data()}));}catch{}if(!prods.length)prods=[{id:'d1',name:'Бургер Классик',description:'Гӯшти гов, панир, салат, помидор',price:28,categoryId:'burgers',available:true},{id:'d2',name:'Пиццаи Маргарита',description:'Помидор, моцарелла, реҳан',price:42,categoryId:'pizza',available:true},{id:'d3',name:'Шаурмаи XL',description:'Мурғ, сабзавот, соус',price:22,categoryId:'shawarma',available:true},{id:'d4',name:'Поке бо лосос',description:'Биринҷ, лосос, авокадо, хиёр',price:40,categoryId:'poke',available:true},{id:'d5',name:'Том Ям',description:'Шӯрбо бо баҳрӣ',price:34,categoryId:'soup',available:true},{id:'d6',name:'Ролли Филадельфия',description:'Лосос, пандири кремӣ',price:31,categoryId:'rolls',available:true},{id:'d7',name:'Салати Юнонӣ',description:'Фета, зайтун, помидор',price:23,categoryId:'salads',available:true},{id:'d8',name:'Картошкаи Фри',description:'Тарӯтоза, бо соус',price:12,categoryId:'sides',available:true}];renderHomeProds();renderCatalog();renderHomeCats();}
 async function loadCats(){try{const s=await getDocs(collection(db,'categories'));cats=s.docs.map(d=>({id:d.id,...d.data()}));}catch{}if(!cats.length)cats=[{id:'burgers',name:'Бургерҳо'},{id:'pizza',name:'Пицца'},{id:'shawarma',name:'Шаурма'},{id:'poke',name:'Поке'},{id:'soup',name:'Шӯрбо'},{id:'rolls',name:'Роллҳо'},{id:'salads',name:'Салатҳо'},{id:'sides',name:'Гарниры'}];renderCatPills();renderHomeCats();}
 function catName(id){return(cats.find(c=>c.id===id)||{}).name||CAT_NAMES_TG[id]||id||''}
-function emoji(p){return EM[p.categoryId]||EM.default}
+function catIcon(cid){return CAT_SVG[cid]||CAT_SVG.default;}
 function getCartQty(pid){return(cart.find(c=>c.productId===pid)||{}).quantity||0;}
+
+// Placeholder SVG for product cards
+function prodPlaceholder(cid){const ic=CAT_SVG[cid]||CAT_SVG.default;return`<div style="width:60px;height:60px;opacity:.25">${ic.svg}</div>`;}
 
 function renderPC(p){
   const qty=getCartQty(p.id);
-  const imgHtml=p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" loading="lazy">`:`<span class="pc-img-ph">${emoji(p)}</span>`;
   const unavail=!p.available;
+  const imgHtml=p.imageUrl?`<img src="${p.imageUrl}" alt="${p.name}" loading="lazy">`:`<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;opacity:.22">${(CAT_SVG[p.categoryId]||CAT_SVG.default).svg.replace('width="26" height="26"','width="64" height="64"')}</div>`;
   const controls=unavail
     ?`<button class="add-btn" disabled><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`
     :qty>0
@@ -479,22 +509,52 @@ function renderPC(p){
 
 window.pcPlus=async function(pid){await addToCart(pid);};
 window.pcMinus=async function(pid){const item=cart.find(c=>c.productId===pid);if(!item)return;const nq=item.quantity-1;const cr=doc(db,'users',CU.uid,'cart',pid);if(nq<=0){await deleteDoc(cr);cart=cart.filter(c=>c.productId!==pid);}else{await updateDoc(cr,{quantity:nq,updatedAt:serverTimestamp()});item.quantity=nq;}renderCart();renderHomeProds();renderCatalog();updateBadges();};
-
-function renderHomeProds(){const el=document.getElementById('home-prods');const list=prods.filter(p=>p.available!==false).slice(0,8);el.innerHTML=list.length?list.map(renderPC).join(''):`<div class="empty" style="grid-column:1/-1"><span class="empty-ico">🍽️</span><div class="empty-t">Маҳсулот нест</div></div>`;}
-function renderCatalog(){const el=document.getElementById('cat-prods');let list=[...prods];if(catFilter!=='all')list=list.filter(p=>p.categoryId===catFilter);if(searchQ)list=list.filter(p=>p.name.toLowerCase().includes(searchQ.toLowerCase())||(p.description||'').toLowerCase().includes(searchQ.toLowerCase()));el.innerHTML=list.length?list.map(renderPC).join(''):`<div class="empty" style="grid-column:1/-1"><span class="empty-ico">🔍</span><div class="empty-t">Ҳеҷ чиз ёфт нашуд</div></div>`;}
+function renderHomeProds(){const el=document.getElementById('home-prods');const list=prods.filter(p=>p.available!==false).slice(0,8);el.innerHTML=list.length?list.map(renderPC).join(''):`<div class="empty" style="grid-column:1/-1"><div class="empty-t">Маҳсулот нест</div></div>`;}
+function renderCatalog(){const el=document.getElementById('cat-prods');let list=[...prods];if(catFilter!=='all')list=list.filter(p=>p.categoryId===catFilter);if(searchQ)list=list.filter(p=>p.name.toLowerCase().includes(searchQ.toLowerCase())||(p.description||'').toLowerCase().includes(searchQ.toLowerCase()));el.innerHTML=list.length?list.map(renderPC).join(''):`<div class="empty" style="grid-column:1/-1"><div class="empty-t">Ҳеҷ чиз ёфт нашуд</div></div>`;}
 function renderCatPills(){document.getElementById('cats').innerHTML=`<button class="cat${catFilter==='all'?' active':''}" onclick="filterCat('all')">Ҳама</button>`+cats.map(c=>`<button class="cat${catFilter===c.id?' active':''}" onclick="filterCat('${c.id}')">${c.name}</button>`).join('');}
-
 function renderHomeCats(){
-  const el=document.getElementById('home-cats');
-  if(!el)return;
+  const el=document.getElementById('home-cats');if(!el)return;
   const uniqueCats=[...new Set(prods.map(p=>p.categoryId))].slice(0,8);
   el.innerHTML=uniqueCats.map(cid=>{
     const count=prods.filter(p=>p.categoryId===cid&&p.available!==false).length;
-    const name=catName(cid);
-    const ico=EM[cid]||EM.default;
-    return`<div class="cat-panel" onclick="filterCat('${cid}');goPage('catalog')"><span class="cat-panel-ico">${ico}</span><div class="cat-panel-name">${name}</div><div class="cat-panel-count">${count} маҳсулот</div></div>`;
+    const name=catName(cid);const ic=catIcon(cid);
+    return`<div class="cat-panel" style="--cat-c:${ic.color};--cat-bg:${ic.bg}" onclick="filterCat('${cid}');goPage('catalog')"><div class="cat-panel-ico">${ic.svg}</div><div class="cat-panel-name">${name}</div><div class="cat-panel-count">${count} маҳсулот</div></div>`;
   }).join('');
 }
+
+// ── HOME SEARCH DROPDOWN ──
+let homeSearchQ='';
+window.onHomeSearch=function(v){
+  homeSearchQ=v;
+  document.getElementById('search-clear').classList.toggle('show',v.length>0);
+  renderSearchDropdown(v);
+};
+window.clearHomeSearch=function(){
+  homeSearchQ='';
+  document.getElementById('search-inp-home').value='';
+  document.getElementById('search-clear').classList.remove('show');
+  closeSearchDropdown();
+};
+window.openSearchDropdown=function(){if(homeSearchQ)renderSearchDropdown(homeSearchQ);}
+function renderSearchDropdown(q){
+  const dd=document.getElementById('search-dropdown');
+  if(!q){dd.classList.remove('open');return;}
+  const results=prods.filter(p=>p.available!==false&&(p.name.toLowerCase().includes(q.toLowerCase())||(p.description||'').toLowerCase().includes(q.toLowerCase()))).slice(0,6);
+  if(!results.length){dd.innerHTML=`<div class="srd-empty">Ҳеҷ чиз ёфт нашуд 🔍</div>`;dd.classList.add('open');return;}
+  dd.innerHTML=results.map(p=>`<div class="srd-item" onclick="pickSearchResult('${p.id}')"><div class="srd-img">${p.imageUrl?`<img src="${p.imageUrl}" alt="">`:catIcon(p.categoryId).svg}</div><div class="srd-info"><div class="srd-name">${p.name}</div><div class="srd-cat">${catName(p.categoryId)}</div></div><div class="srd-price">${p.price} см</div></div>`).join('');
+  dd.classList.add('open');
+}
+function closeSearchDropdown(){document.getElementById('search-dropdown').classList.remove('open');}
+window.pickSearchResult=function(pid){
+  closeSearchDropdown();
+  clearHomeSearch();
+  filterCat('all');
+  searchQ=prods.find(p=>p.id===pid)?.name||'';
+  renderCatalog();
+  goPage('catalog');
+  searchQ='';
+};
+document.addEventListener('click',e=>{if(!document.getElementById('search-box').contains(e.target))closeSearchDropdown();});
 
 window.filterCat=function(id){catFilter=id;renderCatPills();renderCatalog();};
 window.onSearch=function(v){searchQ=v;renderCatalog();if(v)goPage('catalog');};
@@ -503,22 +563,22 @@ window.addToCart=async function(pid){const p=prods.find(x=>x.id===pid);if(!p||!C
 window.updateQty=async function(pid,d){const item=cart.find(c=>c.productId===pid);if(!item)return;const nq=item.quantity+d;const cr=doc(db,'users',CU.uid,'cart',pid);if(nq<=0){await deleteDoc(cr);cart=cart.filter(c=>c.productId!==pid);}else{await updateDoc(cr,{quantity:nq,updatedAt:serverTimestamp()});item.quantity=nq;}renderCart();updateBadges();};
 window.removeCI=async function(pid){await deleteDoc(doc(db,'users',CU.uid,'cart',pid));cart=cart.filter(c=>c.productId!==pid);renderCart();renderHomeProds();renderCatalog();updateBadges();};
 window.clearCartUI=async function(){if(!cart.length)return;if(!confirm('Сабадро тоза кунем?'))return;const b=writeBatch(db);cart.forEach(c=>b.delete(doc(db,'users',CU.uid,'cart',c.productId)));await b.commit();cart=[];renderCart();renderHomeProds();renderCatalog();updateBadges();};
-function renderCart(){const el=document.getElementById('cart-list');if(!cart.length){el.innerHTML='<div class="empty"><span class="empty-ico">🛒</span><div class="empty-t">Сабад холӣ аст</div><div class="empty-s">Аз каталог маҳсулот илова кунед</div></div>';document.getElementById('cart-sum').style.opacity='.5';document.getElementById('checkout-btn').disabled=true;}else{el.innerHTML=cart.map(i=>`<div class="ci"><div class="ci-img">${i.imageUrl?`<img src="${i.imageUrl}" alt="">`:'<span>🍽️</span>'}</div><div class="ci-info"><div class="ci-name">${i.name}</div><div class="ci-price">${i.price} см / дона</div></div><div class="qty"><button class="qty-btn" onclick="updateQty('${i.productId}',-1)">−</button><div class="qty-val">${i.quantity}</div><button class="qty-btn" onclick="updateQty('${i.productId}',1)">+</button></div><div class="ci-total">${i.price*i.quantity} см</div><button class="ci-del" onclick="removeCI('${i.productId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></div>`).join('');document.getElementById('cart-sum').style.opacity='1';document.getElementById('checkout-btn').disabled=false;}const sub=cart.reduce((s,c)=>s+c.price*c.quantity,0);const tot=sub+(cart.length?DFEE:0);document.getElementById('cs-items').textContent=sub+' см';document.getElementById('cs-del').textContent=cart.length?DFEE+' см':'0 см';document.getElementById('cs-total').textContent=tot+' см';}
-function updateBadges(){const cnt=cart.reduce((s,c)=>s+c.quantity,0);['cart-nb','mob-cart-b'].forEach(id=>{const b=document.getElementById(id);if(b){b.style.display=cnt>0?'':'none';b.textContent=cnt;}});const tb=document.getElementById('tb-cnt');if(tb)tb.textContent=cnt;document.getElementById('st-cart').innerHTML=`<span>${cnt}</span>`;}
+function renderCart(){const el=document.getElementById('cart-list');if(!cart.length){el.innerHTML='<div class="empty"><span class="empty-ico">🛒</span><div class="empty-t">Сабад холӣ аст</div><div class="empty-s">Аз каталог маҳсулот илова кунед</div></div>';document.getElementById('cart-sum').style.opacity='.5';document.getElementById('checkout-btn').disabled=true;}else{el.innerHTML=cart.map(i=>`<div class="ci"><div class="ci-img">${i.imageUrl?`<img src="${i.imageUrl}" alt="">`:(CAT_SVG.default.svg)}</div><div class="ci-info"><div class="ci-name">${i.name}</div><div class="ci-price">${i.price} см / дона</div></div><div class="qty"><button class="qty-btn" onclick="updateQty('${i.productId}',-1)">−</button><div class="qty-val">${i.quantity}</div><button class="qty-btn" onclick="updateQty('${i.productId}',1)">+</button></div><div class="ci-total">${i.price*i.quantity} см</div><button class="ci-del" onclick="removeCI('${i.productId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></div>`).join('');document.getElementById('cart-sum').style.opacity='1';document.getElementById('checkout-btn').disabled=false;}const sub=cart.reduce((s,c)=>s+c.price*c.quantity,0);const tot=sub+(cart.length?DFEE:0);document.getElementById('cs-items').textContent=sub+' см';document.getElementById('cs-del').textContent=cart.length?DFEE+' см':'0 см';document.getElementById('cs-total').textContent=tot+' см';}
+function updateBadges(){const cnt=cart.reduce((s,c)=>s+c.quantity,0);['cart-nb','mob-cart-b'].forEach(id=>{const b=document.getElementById(id);if(b){b.style.display=cnt>0?'':'none';b.textContent=cnt;}});const tb=document.getElementById('tb-cnt');if(tb)tb.textContent=cnt;}
 function setAddr(){if(UD?.address)document.getElementById('cart-addr').value=UD.address;}
-window.doCheckout=async function(){if(!cart.length)return;const addr=document.getElementById('cart-addr').value.trim();if(!addr){toast('Суроғи расониданро нишон диҳед','err');document.getElementById('cart-addr').focus();return;}const btn=document.getElementById('checkout-btn');btn.disabled=true;btn.innerHTML='<div class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:14px;height:14px"></div> Расмикунонӣ…';try{const sub=cart.reduce((s,c)=>s+c.price*c.quantity,0);const ref=await addDoc(collection(db,'orders'),{clientId:CU.uid,clientName:UD?.displayName||'',items:cart.map(c=>({productId:c.productId,name:c.name,price:c.price,quantity:c.quantity})),total:sub+DFEE,address:addr,comment:document.getElementById('cart-comment').value.trim(),paymentMethod:document.getElementById('cart-pay').value,status:'pending',courierId:null,courierName:null,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});activeOid=ref.id;const b=writeBatch(db);cart.forEach(c=>b.delete(doc(db,'users',CU.uid,'cart',c.productId)));await b.commit();cart=[];renderCart();updateBadges();toast('Фармоиш расмикунонӣ шуд! 🎉','ok');await loadOrders();renderStats();goPage('status');listenLive(ref.id);}catch(e){toast('Хато: '+e.message,'err');btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Фармоиш расмикунонӣ';}};
-async function loadOrders(){try{const q=query(collection(db,'orders'),where('clientId','==',CU.uid),orderBy('createdAt','desc'));const s=await getDocs(q);orders=s.docs.map(d=>({id:d.id,...d.data()}));}catch{orders=[];}const live=orders.find(o=>['pending','confirmed','preparing','delivering'].includes(o.status));if(live){activeOid=live.id;if(!unsubLive)listenLive(live.id);}renderOrders();renderOrdersBadge();renderStats();renderLiveBanner();}
-function renderOrders(){const el=document.getElementById('orders-list');if(!orders.length){el.innerHTML='<div class="empty"><span class="empty-ico">📦</span><div class="empty-t">Фармоишҳо нест</div><div class="empty-s">Аввалин фармоишро расмикунонед</div></div>';return;}el.innerHTML=orders.map(o=>{const c=SC[o.status]||'#888',l=SL[o.status]||o.status;const items=(o.items||[]).map(i=>`${i.name} ×${i.quantity}`).join(', ');const date=o.createdAt?.toDate?o.createdAt.toDate().toLocaleDateString('tg-TJ',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';return`<div class="oc st-${o.status}"><div class="oc-head"><div class="oc-id">Фармоиш <strong>#${o.id.slice(-6).toUpperCase()}</strong></div><div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div></div><div class="oc-items">${items}</div><div class="oc-footer"><div><div class="oc-total">${o.total} см</div><div class="oc-meta">${date} · ${o.address||''}</div></div><div class="oc-actions">${['pending','confirmed'].includes(o.status)?`<button class="btn-sm danger" onclick="cancelO('${o.id}')">Бекор кунед</button>`:''}${['delivering','confirmed','preparing'].includes(o.status)?`<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>`:''}</div></div></div>`;}).join('');}
+window.doCheckout=async function(){if(!cart.length)return;const addr=document.getElementById('cart-addr').value.trim();if(!addr){toast('Суроғи расониданро нишон диҳед','err');document.getElementById('cart-addr').focus();return;}const btn=document.getElementById('checkout-btn');btn.disabled=true;btn.innerHTML='<div class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:14px;height:14px"></div> Расмикунонӣ…';try{const sub=cart.reduce((s,c)=>s+c.price*c.quantity,0);const ref=await addDoc(collection(db,'orders'),{clientId:CU.uid,clientName:UD?.displayName||'',items:cart.map(c=>({productId:c.productId,name:c.name,price:c.price,quantity:c.quantity})),total:sub+DFEE,address:addr,comment:document.getElementById('cart-comment').value.trim(),paymentMethod:document.getElementById('cart-pay').value,status:'pending',courierId:null,courierName:null,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});activeOid=ref.id;const b=writeBatch(db);cart.forEach(c=>b.delete(doc(db,'users',CU.uid,'cart',c.productId)));await b.commit();cart=[];renderCart();updateBadges();toast('Фармоиш расмикунонӣ шуд! 🎉','ok');await loadOrders();goPage('status');listenLive(ref.id);}catch(e){toast('Хато: '+e.message,'err');btn.disabled=false;btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Фармоиш расмикунонӣ';}};
+async function loadOrders(){try{const q=query(collection(db,'orders'),where('clientId','==',CU.uid),orderBy('createdAt','desc'));const s=await getDocs(q);orders=s.docs.map(d=>({id:d.id,...d.data()}));}catch{orders=[];}const live=orders.find(o=>['pending','confirmed','preparing','delivering'].includes(o.status));if(live){activeOid=live.id;if(!unsubLive)listenLive(live.id);}renderOrders();renderOrdersBadge();renderLiveBanner();}
+function renderOrders(){const el=document.getElementById('orders-list');if(!orders.length){el.innerHTML='<div class="empty"><span class="empty-ico">📦</span><div class="empty-t">Фармоишҳо нест</div><div class="empty-s">Аввалин фармоишро расмикунонед</div></div>';return;}el.innerHTML=orders.map(o=>{const c=SC[o.status]||'#888',l=SL[o.status]||o.status;const items=(o.items||[]).map(i=>`${i.name} ×${i.quantity}`).join(', ');const date=o.createdAt?.toDate?o.createdAt.toDate().toLocaleDateString('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—';return`<div class="oc st-${o.status}"><div class="oc-head"><div class="oc-id">Фармоиш <strong>#${o.id.slice(-6).toUpperCase()}</strong></div><div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div></div><div class="oc-items">${items}</div><div class="oc-footer"><div><div class="oc-total">${o.total} см</div><div class="oc-meta">${date} · ${o.address||''}</div></div><div class="oc-actions">${['pending','confirmed'].includes(o.status)?`<button class="btn-sm danger" onclick="cancelO('${o.id}')">Бекор кунед</button>`:''}${['delivering','confirmed','preparing'].includes(o.status)?`<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>`:''}</div></div></div>`;}).join('');}
 function renderOrdersBadge(){const act=orders.filter(o=>['pending','confirmed','preparing','delivering'].includes(o.status)).length;['orders-nb','mob-ord-b'].forEach(id=>{const b=document.getElementById(id);if(b){b.style.display=act>0?'':'none';b.textContent=act;}});}
 window.cancelO=async function(id){if(!confirm('Фармоишро бекор кунем?'))return;try{await updateDoc(doc(db,'orders',id),{status:'cancelled',updatedAt:serverTimestamp()});toast('Фармоиш бекор шуд','ok');await loadOrders();}catch{toast('Хато','err');}};
 window.trackO=function(id){activeOid=id;goPage('status');renderStatusPage();};
-function listenLive(oid){if(unsubLive){unsubLive();unsubLive=null;}unsubLive=onSnapshot(doc(db,'orders',oid),snap=>{if(!snap.exists())return;const o={id:snap.id,...snap.data()};const idx=orders.findIndex(x=>x.id===oid);if(idx>=0)orders[idx]=o;else orders.unshift(o);renderOrders();renderOrdersBadge();renderLiveBanner();renderStats();if(document.getElementById('page-status').classList.contains('active'))renderStatusPage();if(['delivered','cancelled'].includes(o.status)){if(unsubLive){unsubLive();unsubLive=null;}if(o.status==='delivered')toast('🎉 Фармоиш расонида шуд!','ok');}});}
+function listenLive(oid){if(unsubLive){unsubLive();unsubLive=null;}unsubLive=onSnapshot(doc(db,'orders',oid),snap=>{if(!snap.exists())return;const o={id:snap.id,...snap.data()};const idx=orders.findIndex(x=>x.id===oid);if(idx>=0)orders[idx]=o;else orders.unshift(o);renderOrders();renderOrdersBadge();renderLiveBanner();if(document.getElementById('page-status').classList.contains('active'))renderStatusPage();if(['delivered','cancelled'].includes(o.status)){if(unsubLive){unsubLive();unsubLive=null;}if(o.status==='delivered')toast('🎉 Фармоиш расонида шуд!','ok');}});}
 function renderLiveBanner(){const wrap=document.getElementById('live-wrap');const live=orders.find(o=>['pending','confirmed','preparing','delivering'].includes(o.status));if(!live){wrap.innerHTML='';return;}wrap.innerHTML=`<div class="live-banner" onclick="trackO('${live.id}')"><div class="live-pulse"></div><div class="live-info"><div class="live-lbl">Фармоиши фаъол</div><div class="live-txt">#${live.id.slice(-6).toUpperCase()} · ${SL[live.status]} · ${live.total} см</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>`;}
-function renderStatusPage(){const el=document.getElementById('status-content');const o=orders.find(x=>x.id===activeOid)||orders.find(o=>['pending','confirmed','preparing','delivering'].includes(o.status));if(!o){el.innerHTML='<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';return;}const c=SC[o.status]||'#888',l=SL[o.status]||o.status,si=STEPS.indexOf(o.status);const date=o.createdAt?.toDate?o.createdAt.toDate().toLocaleString('ru-RU'):'—';const pay=o.paymentMethod==='cash'?'💵 Нақдӣ':o.paymentMethod==='card'?'💳 Корт':'Онлайн';const icons=['⏳','✅','👨‍🍳','🛵','🎉'];const steps=STEPS.map((s,i)=>{const cls=i<si?'done':i===si?'cur':'';return`<div class="track-step ${cls}"><div class="track-dot">${i<=si?icons[i]:''}</div><div class="track-lbl">${SL[s]}</div></div>`;}).join('');el.innerHTML=`<div class="oc st-${o.status}" style="padding:18px 20px"><div class="oc-head"><div class="oc-id">Фармоиш <strong>#${o.id.slice(-6).toUpperCase()}</strong></div><div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div></div><div class="track">${steps}</div><div class="divider"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:.76rem"><div><div class="sh-tag" style="margin-bottom:4px">Суроғ</div><div style="color:var(--tx)">${o.address||'—'}</div></div><div><div class="sh-tag" style="margin-bottom:4px">Пардохт</div><div style="color:var(--tx)">${pay}</div></div><div><div class="sh-tag" style="margin-bottom:4px">Курьер</div><div style="color:var(--tx)">${o.courierName||'Таъин мешавад…'}</div></div><div><div class="sh-tag" style="margin-bottom:4px">Вақт</div><div style="color:var(--tx)">${date}</div></div></div><div class="divider"></div><div class="sh-tag" style="margin-bottom:10px">Таркиб</div>${(o.items||[]).map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.76rem"><span style="color:var(--tx)">${i.name} <span style="color:var(--tx3)">×${i.quantity}</span></span><span style="color:var(--tx2)">${i.price*i.quantity} см</span></div>`).join('')}<div style="display:flex;justify-content:space-between;font-size:.74rem;padding:8px 0;color:var(--tx3)"><span>Расонидан</span><span>${DFEE} см</span></div><div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--b0)"><span style="font-weight:700;font-size:.8rem">Ҷамъ</span><span style="font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)">${o.total} см</span></div>${['pending','confirmed'].includes(o.status)?`<div style="margin-top:14px"><button class="btn-sm danger" onclick="cancelO('${o.id}')">Фармоишро бекор кунед</button></div>`:''}</div>`;}
+function renderStatusPage(){const el=document.getElementById('status-content');const o=orders.find(x=>x.id===activeOid)||orders.find(o=>['pending','confirmed','preparing','delivering'].includes(o.status));if(!o){el.innerHTML='<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';return;}const c=SC[o.status]||'#888',l=SL[o.status]||o.status,si=STEPS.indexOf(o.status);const date=o.createdAt?.toDate?o.createdAt.toDate().toLocaleString('ru-RU'):'—';const pay=o.paymentMethod==='cash'?'Нақдӣ':o.paymentMethod==='card'?'Корт':'Онлайн';const icons=['⏳','✅','👨‍🍳','🛵','🎉'];const steps=STEPS.map((s,i)=>{const cls=i<si?'done':i===si?'cur':'';return`<div class="track-step ${cls}"><div class="track-dot">${i<=si?icons[i]:''}</div><div class="track-lbl">${SL[s]}</div></div>`;}).join('');el.innerHTML=`<div class="oc st-${o.status}" style="padding:18px 20px"><div class="oc-head"><div class="oc-id">Фармоиш <strong>#${o.id.slice(-6).toUpperCase()}</strong></div><div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div></div><div class="track">${steps}</div><div class="divider"></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:.76rem"><div><div class="sh-tag" style="margin-bottom:4px">Суроғ</div><div style="color:var(--tx)">${o.address||'—'}</div></div><div><div class="sh-tag" style="margin-bottom:4px">Пардохт</div><div style="color:var(--tx)">${pay}</div></div><div><div class="sh-tag" style="margin-bottom:4px">Курьер</div><div style="color:var(--tx)">${o.courierName||'Таъин мешавад…'}</div></div><div><div class="sh-tag" style="margin-bottom:4px">Вақт</div><div style="color:var(--tx)">${date}</div></div></div><div class="divider"></div><div class="sh-tag" style="margin-bottom:10px">Таркиб</div>${(o.items||[]).map(i=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.76rem"><span style="color:var(--tx)">${i.name} <span style="color:var(--tx3)">×${i.quantity}</span></span><span style="color:var(--tx2)">${i.price*i.quantity} см</span></div>`).join('')}<div style="display:flex;justify-content:space-between;font-size:.74rem;padding:8px 0;color:var(--tx3)"><span>Расонидан</span><span>${DFEE} см</span></div><div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--b0)"><span style="font-weight:700;font-size:.8rem">Ҷамъ</span><span style="font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)">${o.total} см</span></div>${['pending','confirmed'].includes(o.status)?`<div style="margin-top:14px"><button class="btn-sm danger" onclick="cancelO('${o.id}')">Фармоишро бекор кунед</button></div>`:''}</div>`;}
 function renderProfile(){const name=UD?.displayName||CU.displayName||'';const init=name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2)||'?';document.getElementById('p-name').textContent=name||'Бе ном';document.getElementById('p-email').textContent=CU.email||'';const av=document.getElementById('p-av');av.innerHTML=UD?.avatarUrl?`<img src="${UD.avatarUrl}" alt="">`:init;document.getElementById('pf-name').value=name;document.getElementById('pf-email').value=CU.email||'';document.getElementById('pf-phone').value=UD?.phone||'';document.getElementById('pf-addr').value=UD?.address||'';}
 window.saveProfile=async function(){const name=document.getElementById('pf-name').value.trim();const phone=document.getElementById('pf-phone').value.trim();const addr=document.getElementById('pf-addr').value.trim();try{await setDoc(doc(db,'users',CU.uid),{displayName:name,phone,address:addr,updatedAt:serverTimestamp()},{merge:true});UD={...UD,displayName:name,phone,address:addr};renderSB();renderProfile();setAddr();toast('Профил сақл шуд','ok');}catch{toast('Хато','err');}};
 window.uploadAvUI=async function(inp){const f=inp.files[0];if(!f)return;if(f.size>2*1024*1024){toast('Файл хеле калон аст','err');return;}toast('Боргузорӣ…');try{const sr=sRef(storage,`avatars/${CU.uid}`);await uploadBytes(sr,f);const url=await getDownloadURL(sr);await setDoc(doc(db,'users',CU.uid),{avatarUrl:url,updatedAt:serverTimestamp()},{merge:true});UD.avatarUrl=url;renderSB();renderProfile();toast('Акс навсозӣ шуд','ok');}catch{toast('Хатои боргузорӣ','err');}};
-function renderStats(){const tot=orders.length;const spent=orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+(o.total||0),0);const live=orders.find(o=>['pending','confirmed','preparing','delivering'].includes(o.status));document.getElementById('st-orders').innerHTML=`<span>${tot}</span>`;document.getElementById('st-spent').innerHTML=`<span>${spent}</span>`;if(live){document.getElementById('st-active').innerHTML=`<span style="color:var(--acc)">${SL[live.status]}</span>`;document.getElementById('st-sub').textContent='#'+live.id.slice(-6).toUpperCase();}else{document.getElementById('st-active').innerHTML=`<span style="color:var(--green)">Фаъол нест</span>`;document.getElementById('st-sub').textContent='Ҳама расонида шуд';}document.getElementById('ps-orders').textContent=tot;document.getElementById('ps-spent').textContent=spent;}
+function renderStats(){const tot=orders.length;const spent=orders.filter(o=>o.status!=='cancelled').reduce((s,o)=>s+(o.total||0),0);document.getElementById('ps-orders').textContent=tot;document.getElementById('ps-spent').textContent=spent;}
 window.goPage=function(page){document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.ni,.mn-item').forEach(n=>n.classList.remove('active'));document.getElementById('page-'+page)?.classList.add('active');document.querySelectorAll(`.ni[data-page="${page}"],.mn-item[data-page="${page}"]`).forEach(n=>n.classList.add('active'));const tb=document.getElementById('tb-title');if(page==='home')tb.innerHTML='Galelium <em>Delivery</em>';else tb.textContent={catalog:'Каталог',cart:'Сабад',orders:'Фармоишҳоям',status:'Ҳолати фармоиш',profile:'Профил'}[page]||'Galelium Delivery';if(page==='status')renderStatusPage();if(page==='orders')renderOrders();closeSB();document.getElementById('pages').scrollTop=0;};
 window.toggleSB=function(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sb-overlay').classList.toggle('open');};
 window.closeSB=function(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sb-overlay').classList.remove('open');};
