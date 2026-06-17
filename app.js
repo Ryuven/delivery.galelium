@@ -1,0 +1,699 @@
+// ============================================================
+//  app.js — Логика клиентского приложения Galelium Delivery
+//  Используется в: home.html
+// ============================================================
+
+import { auth, db, storage, ORDER_STATUS } from './firebase.js';
+
+import {
+  onAuthStateChanged,
+  signOut,
+} from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js';
+
+import {
+  doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
+  collection, getDocs, query, where, orderBy,
+  onSnapshot, serverTimestamp, increment, writeBatch,
+} from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js';
+
+import {
+  ref as sRef, uploadBytes, getDownloadURL,
+} from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-storage.js';
+
+// ─── Состояние приложения ────────────────────────────────────
+let CU        = null;   // текущий пользователь Firebase Auth
+let UD        = null;   // документ пользователя из Firestore
+let cart      = [];
+let prods     = [];
+let cats      = [];
+let orders    = [];
+let catFilter = 'all';
+let searchQ   = '';
+let activeOid = null;
+let unsubLive = null;
+let currentOTab = 'all';
+let homeSearchQ = '';
+
+const DFEE = 7; // стоимость доставки
+
+// ─── Лейблы и цвета статусов (на таджикском) ─────────────────
+const SL = {
+  pending:    'Интизор',
+  confirmed:  'Тасдиқ шуд',
+  preparing:  'Омода мешавад',
+  delivering: 'Дар роҳ',
+  delivered:  'Расонида шуд',
+  cancelled:  'Бекор шуд',
+};
+
+const SC = {
+  pending:    'var(--amber)',
+  confirmed:  'var(--blue)',
+  preparing:  'var(--purple)',
+  delivering: 'var(--acc)',
+  delivered:  'var(--acc)',
+  cancelled:  'var(--red)',
+};
+
+const STEPS = ['pending', 'confirmed', 'preparing', 'delivering', 'delivered'];
+
+// ─── SVG-иконки категорий ─────────────────────────────────────
+const CAT_SVG = {
+  vegetables: { color: '#16a34a', bg: 'rgba(22,163,74,.1)', svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M16 6 Q10 10 10 20 Q10 26 16 28 Q22 26 22 20 Q22 10 16 6Z" fill="#16a34a" opacity=".85"/><path d="M16 6 Q14 14 15 22" stroke="#15803d" stroke-width="1.5" fill="none"/><path d="M16 6 Q18 14 17 22" stroke="#15803d" stroke-width="1.5" fill="none"/><path d="M10 14 Q13 12 16 14 Q19 12 22 14" stroke="#fff" stroke-width="1" fill="none" opacity=".5"/></svg>` },
+  fruits:     { color: '#ef4444', bg: 'rgba(239,68,68,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="18" r="10" fill="#ef4444" opacity=".85"/><path d="M16 8 Q18 4 22 5" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M16 8 Q16 4 20 3" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="12" cy="16" r="2" fill="#fff" opacity=".3"/></svg>` },
+  drinks:     { color: '#06b6d4', bg: 'rgba(6,182,212,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M10 8 L12 26 L20 26 L22 8 Z" fill="#06b6d4" opacity=".85"/><rect x="9" y="6" width="14" height="3" rx="1.5" fill="#0891b2"/><path d="M12 15 Q16 17 20 15" stroke="#fff" stroke-width="1" fill="none" opacity=".5"/><circle cx="22" cy="10" r="1.5" fill="#22d3ee"/></svg>` },
+  chocolate:  { color: '#92400e', bg: 'rgba(146,64,14,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="5" y="9" width="22" height="16" rx="3" fill="#92400e" opacity=".85"/><line x1="12" y1="9" x2="12" y2="25" stroke="#7c2d12" stroke-width="1"/><line x1="19" y1="9" x2="19" y2="25" stroke="#7c2d12" stroke-width="1"/><line x1="5" y1="17" x2="27" y2="17" stroke="#7c2d12" stroke-width="1"/><path d="M13 5 Q16 3 19 5" stroke="#92400e" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>` },
+  bread:      { color: '#d97706', bg: 'rgba(217,119,6,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M6 14 Q6 8 16 8 Q26 8 26 14 L26 24 Q26 26 24 26 L8 26 Q6 26 6 24 Z" fill="#d97706" opacity=".85"/><path d="M8 14 Q16 11 24 14" stroke="#b45309" stroke-width="1.5" fill="none"/><ellipse cx="16" cy="14" rx="10" ry="5" fill="#f59e0b" opacity=".4"/></svg>` },
+  dairy:      { color: '#0ea5e9', bg: 'rgba(14,165,233,.1)', svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="9" y="8" width="14" height="18" rx="3" fill="#0ea5e9" opacity=".85"/><path d="M9 12 L7 8 L25 8 L23 12" stroke="#0284c7" stroke-width="1" fill="none"/><circle cx="14" cy="19" r="2" fill="#fff" opacity=".5"/><circle cx="19" cy="17" r="1.5" fill="#fff" opacity=".4"/></svg>` },
+  snacks:     { color: '#f97316', bg: 'rgba(249,115,22,.1)', svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="5" y="12" width="22" height="12" rx="3" fill="#f97316" opacity=".85"/><rect x="8" y="10" width="16" height="4" rx="2" fill="#ea580c"/><path d="M9 16 Q16 14 23 16" stroke="#fff" stroke-width="1" fill="none" opacity=".4"/><path d="M9 20 Q16 18 23 20" stroke="#fff" stroke-width="1" fill="none" opacity=".4"/></svg>` },
+  meat:       { color: '#dc2626', bg: 'rgba(220,38,38,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M8 22 Q6 18 10 14 Q14 10 18 12 L22 8 Q24 6 26 8 Q28 10 26 12 L22 16 Q24 20 20 22 Q16 24 12 22 Q10 24 8 22Z" fill="#dc2626" opacity=".85"/><circle cx="22" cy="10" r="3" fill="#fca5a5" opacity=".6"/></svg>` },
+  default:    { color: '#64748b', bg: 'rgba(100,116,139,.1)',svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10" fill="#64748b" opacity=".15"/><circle cx="16" cy="16" r="6" fill="#64748b" opacity=".5"/></svg>` },
+};
+
+// ─── Вспомогательные функции ──────────────────────────────────
+
+function catIconKey(id, name) {
+  const n = (name || id || '').toLowerCase();
+  if (/сабзав|овощ|vegeta/i.test(n)) return 'vegetables';
+  if (/мева|фрукт|fruit/i.test(n))   return 'fruits';
+  if (/нӯшок|напит|drink/i.test(n))  return 'drinks';
+  if (/шокол|choco/i.test(n))        return 'chocolate';
+  if (/нон|хлеб|bread/i.test(n))     return 'bread';
+  if (/лаб|молок|dairy|шир/i.test(n))return 'dairy';
+  if (/гӯшт|мясо|meat/i.test(n))     return 'meat';
+  if (/снек|перек|snack/i.test(n))   return 'snacks';
+  return id in CAT_SVG ? id : 'default';
+}
+
+function catIcon(id, name) {
+  return CAT_SVG[catIconKey(id, name)] || CAT_SVG.default;
+}
+
+function catName(id) {
+  return (cats.find(c => c.id === id) || {}).name || id || '';
+}
+
+function getCartQty(pid) {
+  return (cart.find(c => c.productId === pid) || {}).quantity || 0;
+}
+
+function fmtDate(ts) {
+  if (!ts?.toDate) return '—';
+  const d = ts.toDate();
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
+    + ', '
+    + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+let _orderSeq = Date.now() % 100000;
+function nextOrderNum() {
+  return (++_orderSeq).toString().padStart(5, '0');
+}
+
+// ─── Toast-уведомления ────────────────────────────────────────
+window.toast = function (msg, type = '') {
+  const w  = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.innerHTML = `<div class="tdot"></div><span>${msg}</span>`;
+  w.appendChild(el);
+  setTimeout(() => el.remove(), 3400);
+};
+
+// ─── Auth: инициализация приложения ──────────────────────────
+onAuthStateChanged(auth, async u => {
+  if (!u) { location.href = 'login.html'; return; }
+  CU = u;
+  await loadUD();
+  await Promise.all([loadCart(), loadProds(), loadCats(), loadOrders()]);
+  renderSB();
+  renderProfile();
+  setAddr();
+  renderCart();
+});
+
+// ─── Выход из аккаунта ────────────────────────────────────────
+window.doLogout = async function () {
+  if (unsubLive) unsubLive();
+  await signOut(auth);
+  location.href = 'login.html';
+};
+
+// ─── Загрузка данных пользователя ────────────────────────────
+async function loadUD() {
+  try {
+    const s = await getDoc(doc(db, 'users', CU.uid));
+    UD = s.exists()
+      ? s.data()
+      : { displayName: CU.displayName || '', email: CU.email, phone: '', address: '', role: 'client', avatarUrl: '' };
+  } catch {
+    UD = { displayName: '', email: CU.email, phone: '', address: '', role: 'client', avatarUrl: '' };
+  }
+}
+
+// ─── Рендер сайдбара ─────────────────────────────────────────
+function renderSB() {
+  const name = UD?.displayName || CU.email || 'Муштарӣ';
+  const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  document.getElementById('sb-uname').textContent = name;
+  const av = document.getElementById('sb-av');
+  av.innerHTML = UD?.avatarUrl ? `<img src="${UD.avatarUrl}" alt="">` : init;
+  const adv = document.getElementById('sb-addr-val');
+  if (UD?.address) {
+    adv.textContent = UD.address;
+    adv.classList.remove('empty');
+  } else {
+    adv.textContent = 'Суроғ нишон диҳед →';
+    adv.classList.add('empty');
+  }
+}
+
+// ─── Навигация ────────────────────────────────────────────────
+window.goPage = function (page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ni,.mn-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('active');
+  document.querySelectorAll(`.ni[data-page="${page}"],.mn-item[data-page="${page}"]`)
+    .forEach(n => n.classList.add('active'));
+  const tb = document.getElementById('tb-title');
+  if (page === 'home') tb.innerHTML = 'Galelium <em>Delivery</em>';
+  else tb.textContent = {
+    catalog: 'Каталог',
+    cart:    'Сабад',
+    orders:  'Фармоишҳоям',
+    status:  'Ҳолати фармоиш',
+    profile: 'Профил',
+  }[page] || 'Galelium Delivery';
+  if (page === 'status') renderStatusPage();
+  if (page === 'orders') loadOrders();
+  closeSB();
+  document.getElementById('pages').scrollTop = 0;
+};
+
+window.toggleSB = function () {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sb-overlay').classList.toggle('open');
+};
+
+window.closeSB = function () {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sb-overlay').classList.remove('open');
+};
+
+document.getElementById('sb-overlay').addEventListener('click', closeSB);
+
+// ─── Продукты ─────────────────────────────────────────────────
+async function loadProds() {
+  try {
+    const s = await getDocs(query(collection(db, 'products'), orderBy('name')));
+    prods = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch {}
+  renderHomeProds();
+  renderCatalog();
+  renderHomeCats();
+}
+
+function renderPC(p) {
+  const qty     = getCartQty(p.id);
+  const unavail = !p.available;
+  const ic      = catIcon(p.categoryId, catName(p.categoryId));
+  const imgHtml = p.imageUrl
+    ? `<img src="${p.imageUrl}" alt="${p.name}" loading="lazy">`
+    : `<div style="width:64px;height:64px;opacity:.2">${ic.svg.replace('width="26" height="26"', 'width="64" height="64"')}</div>`;
+  const controls = unavail
+    ? `<button class="add-btn" disabled title="Нест"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`
+    : qty > 0
+      ? `<div class="pc-qty"><button class="pc-qty-btn" onclick="event.stopPropagation();pcMinus('${p.id}')">−</button><div class="pc-qty-val">${qty}</div><button class="pc-qty-btn" onclick="event.stopPropagation();pcPlus('${p.id}')">+</button></div>`
+      : `<button class="add-btn" onclick="event.stopPropagation();addToCart('${p.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`;
+  return `<div class="pc"><div class="pc-img">${imgHtml}${unavail ? '<div class="pc-badge">Нест</div>' : ''}</div><div class="pc-body"><div class="pc-cat">${catName(p.categoryId)}</div><div class="pc-name">${p.name}</div><div class="pc-desc">${p.description || ''}</div><div class="pc-footer"><div class="pc-price">${p.price}<span> см</span></div>${controls}</div></div></div>`;
+}
+
+window.pcPlus  = async function (pid) { await addToCart(pid); };
+window.pcMinus = async function (pid) {
+  const item = cart.find(c => c.productId === pid);
+  if (!item) return;
+  const nq = item.quantity - 1;
+  const cr = doc(db, 'users', CU.uid, 'cart', pid);
+  if (nq <= 0) {
+    await deleteDoc(cr);
+    cart = cart.filter(c => c.productId !== pid);
+  } else {
+    await updateDoc(cr, { quantity: nq, updatedAt: serverTimestamp() });
+    item.quantity = nq;
+  }
+  renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+};
+
+function renderHomeProds() {
+  const el   = document.getElementById('home-prods');
+  if (!el) return;
+  const list = prods.filter(p => p.available !== false).slice(0, 8);
+  el.innerHTML = list.length
+    ? list.map(renderPC).join('')
+    : `<div class="empty" style="grid-column:1/-1"><div class="empty-t">Маҳсулот нест</div></div>`;
+}
+
+function renderCatalog() {
+  const el = document.getElementById('cat-prods');
+  if (!el) return;
+  let list = [...prods];
+  if (catFilter !== 'all') list = list.filter(p => p.categoryId === catFilter);
+  if (searchQ)             list = list.filter(p =>
+    p.name.toLowerCase().includes(searchQ.toLowerCase()) ||
+    (p.description || '').toLowerCase().includes(searchQ.toLowerCase())
+  );
+  el.innerHTML = list.length
+    ? list.map(renderPC).join('')
+    : `<div class="empty" style="grid-column:1/-1"><div class="empty-t">Ҳеҷ чиз ёфт нашуд</div></div>`;
+}
+
+// ─── Категории ────────────────────────────────────────────────
+async function loadCats() {
+  try {
+    const s = await getDocs(collection(db, 'categories'));
+    cats = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch {}
+  renderCatPills();
+  renderHomeCats();
+}
+
+function renderCatPills() {
+  const el = document.getElementById('cats');
+  if (!el) return;
+  el.innerHTML = `<button class="cat${catFilter === 'all' ? ' active' : ''}" onclick="filterCat('all')">Ҳама</button>`
+    + cats.map(c => `<button class="cat${catFilter === c.id ? ' active' : ''}" onclick="filterCat('${c.id}')">${c.name}</button>`).join('');
+}
+
+function renderHomeCats() {
+  const el    = document.getElementById('home-cats');
+  if (!el) return;
+  const shown = cats.slice(0, 4);
+  if (!shown.length) { el.innerHTML = ''; return; }
+  el.innerHTML = shown.map(c => {
+    const count = prods.filter(p => p.categoryId === c.id && p.available !== false).length;
+    const ic    = catIcon(c.id, c.name);
+    return `<div class="cat-panel" style="--cat-c:${ic.color};--cat-bg:${ic.bg}" onclick="filterCat('${c.id}');goPage('catalog')"><div class="cat-panel-ico">${ic.svg}</div><div class="cat-panel-name">${c.name}</div><div class="cat-panel-count">${count} маҳсулот</div></div>`;
+  }).join('');
+}
+
+window.filterCat = function (id) {
+  catFilter = id;
+  renderCatPills();
+  renderCatalog();
+};
+
+// ─── Поиск ───────────────────────────────────────────────────
+window.onHomeSearch = function (v) {
+  homeSearchQ = v;
+  document.getElementById('search-clear').classList.toggle('show', v.length > 0);
+  renderSD(v);
+};
+
+window.clearHS = function () {
+  homeSearchQ = '';
+  document.getElementById('search-inp-home').value = '';
+  document.getElementById('search-clear').classList.remove('show');
+  closeSD();
+};
+
+window.openSD = function () { if (homeSearchQ) renderSD(homeSearchQ); };
+
+function renderSD(q) {
+  const dd = document.getElementById('search-dd');
+  if (!q) { dd.classList.remove('open'); return; }
+  const res = prods
+    .filter(p => p.available !== false && (
+      p.name.toLowerCase().includes(q.toLowerCase()) ||
+      (p.description || '').toLowerCase().includes(q.toLowerCase())
+    ))
+    .slice(0, 7);
+  if (!res.length) {
+    dd.innerHTML = `<div class="srd-empty">Ҳеҷ чиз ёфт нашуд 🔍</div>`;
+    dd.classList.add('open');
+    return;
+  }
+  dd.innerHTML = res.map(p => {
+    const ic = catIcon(p.categoryId, catName(p.categoryId));
+    return `<div class="srd-item" onclick="pickSD('${p.id}')"><div class="srd-img">${p.imageUrl ? `<img src="${p.imageUrl}" alt="">` : ic.svg}</div><div class="srd-info"><div class="srd-name">${p.name}</div><div class="srd-cat">${catName(p.categoryId)}</div></div><div class="srd-price">${p.price} см</div></div>`;
+  }).join('');
+  dd.classList.add('open');
+}
+
+function closeSD() { document.getElementById('search-dd').classList.remove('open'); }
+
+window.pickSD = function (pid) {
+  closeSD(); clearHS();
+  catFilter = 'all';
+  searchQ   = prods.find(p => p.id === pid)?.name || '';
+  renderCatalog();
+  goPage('catalog');
+  searchQ = '';
+};
+
+document.addEventListener('click', e => {
+  const sb = document.getElementById('search-box');
+  if (sb && !sb.contains(e.target)) closeSD();
+});
+
+window.onSearch = function (v) {
+  searchQ = v;
+  renderCatalog();
+  if (v) goPage('catalog');
+};
+
+// ─── Корзина ─────────────────────────────────────────────────
+async function loadCart() {
+  try {
+    const s = await getDocs(collection(db, 'users', CU.uid, 'cart'));
+    cart = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch { cart = []; }
+  renderCart();
+  updateBadges();
+}
+
+window.addToCart = async function (pid) {
+  const p = prods.find(x => x.id === pid);
+  if (!p || !CU) return;
+  const cr = doc(db, 'users', CU.uid, 'cart', p.id);
+  const ex = cart.find(c => c.productId === p.id);
+  try {
+    if (ex) {
+      await updateDoc(cr, { quantity: increment(1), updatedAt: serverTimestamp() });
+      ex.quantity++;
+    } else {
+      const item = { productId: p.id, name: p.name, price: p.price, imageUrl: p.imageUrl || '', quantity: 1, addedAt: serverTimestamp(), updatedAt: serverTimestamp() };
+      await setDoc(cr, item);
+      cart.push({ id: p.id, ...item });
+    }
+    toast(p.name + ' илова шуд', 'ok');
+    renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+  } catch { toast('Хато', 'err'); }
+};
+
+window.updateQty = async function (pid, d) {
+  const item = cart.find(c => c.productId === pid);
+  if (!item) return;
+  const nq = item.quantity + d;
+  const cr = doc(db, 'users', CU.uid, 'cart', pid);
+  if (nq <= 0) {
+    await deleteDoc(cr);
+    cart = cart.filter(c => c.productId !== pid);
+  } else {
+    await updateDoc(cr, { quantity: nq, updatedAt: serverTimestamp() });
+    item.quantity = nq;
+  }
+  renderCart(); updateBadges();
+};
+
+window.removeCI = async function (pid) {
+  await deleteDoc(doc(db, 'users', CU.uid, 'cart', pid));
+  cart = cart.filter(c => c.productId !== pid);
+  renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+};
+
+window.clearCartUI = async function () {
+  if (!cart.length) return;
+  if (!confirm('Сабадро тоза кунем?')) return;
+  const b = writeBatch(db);
+  cart.forEach(c => b.delete(doc(db, 'users', CU.uid, 'cart', c.productId)));
+  await b.commit();
+  cart = [];
+  renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+};
+
+function renderCart() {
+  const el = document.getElementById('cart-list');
+  if (!el) return;
+  if (!cart.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-ico">🛒</span><div class="empty-t">Сабад холӣ аст</div><div class="empty-s">Аз каталог маҳсулот илова кунед</div></div>';
+    const cs = document.getElementById('cart-sum');   if (cs) cs.style.opacity = '.5';
+    const cb = document.getElementById('checkout-btn'); if (cb) cb.disabled = true;
+  } else {
+    el.innerHTML = cart.map(i => {
+      const ic = catIcon(i.productId, '').svg;
+      return `<div class="ci"><div class="ci-img">${i.imageUrl ? `<img src="${i.imageUrl}" alt="">` : ic}</div><div class="ci-info"><div class="ci-name">${i.name}</div><div class="ci-price">${i.price} см / дона</div></div><div class="qty"><button class="qty-btn" onclick="updateQty('${i.productId}',-1)">−</button><div class="qty-val">${i.quantity}</div><button class="qty-btn" onclick="updateQty('${i.productId}',1)">+</button></div><div class="ci-total">${i.price * i.quantity} см</div><button class="ci-del" onclick="removeCI('${i.productId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></div>`;
+    }).join('');
+    const cs = document.getElementById('cart-sum');   if (cs) cs.style.opacity = '1';
+    const cb = document.getElementById('checkout-btn'); if (cb) cb.disabled = false;
+  }
+  const sub = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+  const tot = sub + (cart.length ? DFEE : 0);
+  const ci  = document.getElementById('cs-items');  if (ci) ci.textContent = sub + ' см';
+  const cd  = document.getElementById('cs-del');    if (cd) cd.textContent = cart.length ? DFEE + ' см' : '0 см';
+  const ct  = document.getElementById('cs-total');  if (ct) ct.textContent = tot + ' см';
+}
+
+function updateBadges() {
+  const cnt = cart.reduce((s, c) => s + c.quantity, 0);
+  ['cart-nb', 'mob-cart-b'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.style.display = cnt > 0 ? '' : 'none'; b.textContent = cnt; }
+  });
+  const tb = document.getElementById('tb-cnt');
+  if (tb) tb.textContent = cnt;
+}
+
+function setAddr() {
+  if (UD?.address) {
+    const ca = document.getElementById('cart-addr');
+    if (ca) ca.value = UD.address;
+  }
+}
+
+// ─── Оформление заказа ────────────────────────────────────────
+window.doCheckout = async function () {
+  if (!cart.length) return;
+  const addr = document.getElementById('cart-addr').value.trim();
+  if (!addr) {
+    toast('Суроғи расониданро нишон диҳед', 'err');
+    document.getElementById('cart-addr').focus();
+    return;
+  }
+  const btn = document.getElementById('checkout-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:14px;height:14px"></div> Расмикунонӣ…';
+  try {
+    const sub  = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+    const oNum = nextOrderNum();
+    const ref  = await addDoc(collection(db, 'orders'), {
+      clientId:      CU.uid,
+      clientName:    UD?.displayName || '',
+      orderNumber:   oNum,
+      items:         cart.map(c => ({ productId: c.productId, name: c.name, price: c.price, quantity: c.quantity })),
+      total:         sub + DFEE,
+      address:       addr,
+      comment:       document.getElementById('cart-comment').value.trim(),
+      paymentMethod: document.getElementById('cart-pay').value,
+      status:        'pending',
+      courierId:     null,
+      courierName:   null,
+      createdAt:     serverTimestamp(),
+      updatedAt:     serverTimestamp(),
+    });
+    activeOid = ref.id;
+    const b = writeBatch(db);
+    cart.forEach(c => b.delete(doc(db, 'users', CU.uid, 'cart', c.productId)));
+    await b.commit();
+    cart = [];
+    renderCart(); updateBadges();
+    toast('Фармоиш №' + oNum + ' расмикунонӣ шуд! 🎉', 'ok');
+    await loadOrders();
+    goPage('status');
+    listenLive(ref.id);
+  } catch (e) {
+    toast('Хато: ' + e.message, 'err');
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Фармоиш расмикунонӣ';
+  }
+};
+
+// ─── Заказы ──────────────────────────────────────────────────
+async function loadOrders() {
+  try {
+    const q = query(collection(db, 'orders'), where('clientId', '==', CU.uid), orderBy('createdAt', 'desc'));
+    const s = await getDocs(q);
+    orders = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch { orders = []; }
+  const live = orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
+  if (live) { activeOid = live.id; if (!unsubLive) listenLive(live.id); }
+  renderOrders(); renderOrdersBadge(); renderLiveBanner();
+  // Статистика профиля
+  const tot   = orders.length;
+  const spent = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0);
+  const po = document.getElementById('ps-orders'); if (po) po.textContent = tot;
+  const ps = document.getElementById('ps-spent');  if (ps) ps.textContent = spent;
+}
+
+window.setOTab = function (tab, btn) {
+  currentOTab = tab;
+  document.querySelectorAll('.otab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOrders();
+};
+
+function filterOrders() {
+  if (currentOTab === 'all')       return orders;
+  if (currentOTab === 'active')    return orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
+  if (currentOTab === 'delivered') return orders.filter(o => o.status === 'delivered');
+  if (currentOTab === 'cancelled') return orders.filter(o => o.status === 'cancelled');
+  return orders;
+}
+
+function renderOrders() {
+  const el   = document.getElementById('orders-list');
+  if (!el) return;
+  const list = filterOrders();
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-ico">📦</span><div class="empty-t">Фармоишҳо нест</div></div>';
+    return;
+  }
+  el.innerHTML = list.map(o => {
+    const c     = SC[o.status] || '#888';
+    const l     = SL[o.status] || o.status;
+    const num   = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+    const items = (o.items || []).map(i => `${i.name} ×${i.quantity}`).join(', ');
+    const date  = fmtDate(o.createdAt);
+    return `<div class="oc st-${o.status}">
+      <div class="oc-head">
+        <div class="oc-num">Фармоиш ${num}</div>
+        <div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div>
+      </div>
+      <div class="oc-items">${items}</div>
+      <div class="oc-footer">
+        <div><div class="oc-total">${o.total} см</div><div class="oc-meta">${date} · ${o.address || ''}</div></div>
+        <div class="oc-actions">
+          ${['pending', 'confirmed'].includes(o.status) ? `<button class="btn-sm danger" onclick="cancelO('${o.id}')">Бекор</button>` : ''}
+          ${['delivering', 'confirmed', 'preparing'].includes(o.status) ? `<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderOrdersBadge() {
+  const act = orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status)).length;
+  ['orders-nb', 'mob-ord-b'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.style.display = act > 0 ? '' : 'none'; b.textContent = act; }
+  });
+}
+
+window.cancelO = async function (id) {
+  if (!confirm('Фармоишро бекор кунем?')) return;
+  try {
+    await updateDoc(doc(db, 'orders', id), { status: 'cancelled', updatedAt: serverTimestamp() });
+    toast('Фармоиш бекор шуд', 'ok');
+    await loadOrders();
+  } catch { toast('Хато', 'err'); }
+};
+
+window.trackO = function (id) {
+  activeOid = id;
+  goPage('status');
+  renderStatusPage();
+};
+
+// ─── Realtime слушатель активного заказа ─────────────────────
+function listenLive(oid) {
+  if (unsubLive) { unsubLive(); unsubLive = null; }
+  unsubLive = onSnapshot(doc(db, 'orders', oid), snap => {
+    if (!snap.exists()) return;
+    const o   = { id: snap.id, ...snap.data() };
+    const idx = orders.findIndex(x => x.id === oid);
+    if (idx >= 0) orders[idx] = o; else orders.unshift(o);
+    renderOrders(); renderOrdersBadge(); renderLiveBanner();
+    if (document.getElementById('page-status').classList.contains('active')) renderStatusPage();
+    if (['delivered', 'cancelled'].includes(o.status)) {
+      if (unsubLive) { unsubLive(); unsubLive = null; }
+      if (o.status === 'delivered') toast('🎉 Фармоиш расонида шуд!', 'ok');
+    }
+  });
+}
+
+// ─── Live-баннер на главной ───────────────────────────────────
+function renderLiveBanner() {
+  const wrap = document.getElementById('live-wrap');
+  if (!wrap) return;
+  const live = orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
+  if (!live) { wrap.innerHTML = ''; return; }
+  const num = live.orderNumber ? '#' + live.orderNumber : '#' + live.id.slice(-6);
+  wrap.innerHTML = `<div class="live-banner" onclick="trackO('${live.id}')"><div class="live-pulse"></div><div class="live-info"><div class="live-lbl">Фармоиши фаъол</div><div class="live-txt">Фармоиш ${num} · ${SL[live.status]} · ${live.total} см</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>`;
+}
+
+// ─── Страница статуса заказа ──────────────────────────────────
+function renderStatusPage() {
+  const el = document.getElementById('status-content');
+  if (!el) return;
+  const o = orders.find(x => x.id === activeOid) || orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
+  if (!o) {
+    el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';
+    return;
+  }
+  const c   = SC[o.status] || '#888';
+  const l   = SL[o.status] || o.status;
+  const si  = STEPS.indexOf(o.status);
+  const num = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+  const date = fmtDate(o.createdAt);
+  const pay  = o.paymentMethod === 'cash' ? 'Нақдӣ' : o.paymentMethod === 'card' ? 'Корт' : 'Онлайн';
+  const icons = ['⏳', '✅', '👨‍🍳', '🛵', '🎉'];
+  const steps = STEPS.map((s, i) => {
+    const cls = i < si ? 'done' : i === si ? 'cur' : '';
+    return `<div class="track-step ${cls}"><div class="track-dot">${i <= si ? icons[i] : ''}</div><div class="track-lbl">${SL[s]}</div></div>`;
+  }).join('');
+  el.innerHTML = `<div class="oc st-${o.status}" style="padding:18px 20px">
+    <div class="oc-head"><div class="oc-num">Фармоиш ${num}</div><div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div></div>
+    <div class="track">${steps}</div><div class="divider"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:.76rem">
+      <div><div class="sh-tag" style="margin-bottom:3px">Суроғ</div><div style="color:var(--tx)">${o.address || '—'}</div></div>
+      <div><div class="sh-tag" style="margin-bottom:3px">Пардохт</div><div style="color:var(--tx)">${pay}</div></div>
+      <div><div class="sh-tag" style="margin-bottom:3px">Курьер</div><div style="color:var(--tx)">${o.courierName || 'Таъин мешавад…'}</div></div>
+      <div><div class="sh-tag" style="margin-bottom:3px">Вақт</div><div style="color:var(--tx)">${date}</div></div>
+    </div><div class="divider"></div>
+    <div class="sh-tag" style="margin-bottom:10px">Таркиб</div>
+    ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.75rem"><span style="color:var(--tx)">${i.name}<span style="color:var(--tx3)"> ×${i.quantity}</span></span><span style="font-weight:600;color:var(--tx2)">${i.price * i.quantity} см</span></div>`).join('')}
+    <div style="display:flex;justify-content:space-between;font-size:.72rem;padding:8px 0;color:var(--tx3)"><span>Расонидан</span><span>${DFEE} см</span></div>
+    <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--b0)"><span style="font-weight:700;font-size:.8rem">Ҷамъ</span><span style="font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)">${o.total} см</span></div>
+    ${['pending', 'confirmed'].includes(o.status) ? `<div style="margin-top:14px"><button class="btn-sm danger" onclick="cancelO('${o.id}')">Фармоишро бекор кунед</button></div>` : ''}
+  </div>`;
+}
+
+// ─── Профиль ─────────────────────────────────────────────────
+function renderProfile() {
+  const name = UD?.displayName || CU.displayName || '';
+  const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  const pn = document.getElementById('p-name');  if (pn) pn.textContent = name || 'Бе ном';
+  const pe = document.getElementById('p-email'); if (pe) pe.textContent = CU.email || '';
+  const av = document.getElementById('p-av');    if (av) av.innerHTML = UD?.avatarUrl ? `<img src="${UD.avatarUrl}" alt="">` : init;
+  const pfn = document.getElementById('pf-name');  if (pfn) pfn.value = name;
+  const pfe = document.getElementById('pf-email'); if (pfe) pfe.value = CU.email || '';
+  const pfp = document.getElementById('pf-phone'); if (pfp) pfp.value = UD?.phone || '';
+  const pfa = document.getElementById('pf-addr');  if (pfa) pfa.value = UD?.address || '';
+}
+
+window.saveProfile = async function () {
+  const name  = document.getElementById('pf-name').value.trim();
+  const phone = document.getElementById('pf-phone').value.trim();
+  const addr  = document.getElementById('pf-addr').value.trim();
+  try {
+    await setDoc(doc(db, 'users', CU.uid), { displayName: name, phone, address: addr, updatedAt: serverTimestamp() }, { merge: true });
+    UD = { ...UD, displayName: name, phone, address: addr };
+    renderSB(); renderProfile(); setAddr();
+    toast('Профил сақл шуд', 'ok');
+  } catch { toast('Хато', 'err'); }
+};
+
+window.uploadAvUI = async function (inp) {
+  const f = inp.files[0];
+  if (!f) return;
+  if (f.size > 2 * 1024 * 1024) { toast('Файл хеле калон аст', 'err'); return; }
+  toast('Боргузорӣ…');
+  try {
+    const sr  = sRef(storage, `avatars/${CU.uid}`);
+    await uploadBytes(sr, f);
+    const url = await getDownloadURL(sr);
+    await setDoc(doc(db, 'users', CU.uid), { avatarUrl: url, updatedAt: serverTimestamp() }, { merge: true });
+    UD.avatarUrl = url;
+    renderSB(); renderProfile();
+    toast('Акс навсозӣ шуд', 'ok');
+  } catch { toast('Хатои боргузорӣ', 'err'); }
+};
