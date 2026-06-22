@@ -510,25 +510,12 @@ window.doCheckout = async function () {
 // ─── Заказы ──────────────────────────────────────────────────
 async function loadOrders() {
   try {
-    // Используем только where без orderBy — не требует composite index в Firestore
-    const q = query(collection(db, 'orders'), where('clientId', '==', CU.uid));
+    const q = query(collection(db, 'orders'), where('clientId', '==', CU.uid), orderBy('createdAt', 'desc'));
     const s = await getDocs(q);
     orders = s.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Сортируем на стороне клиента по дате убывания
-    orders.sort((a, b) => {
-      const ta = a.createdAt?.toMillis?.() || 0;
-      const tb = b.createdAt?.toMillis?.() || 0;
-      return tb - ta;
-    });
-  } catch (e) {
-    console.error('loadOrders error:', e);
-    orders = [];
-  }
+  } catch { orders = []; }
   const live = orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
-  if (live) {
-    activeOid = live.id;
-    if (!unsubLive) listenLive(live.id);
-  }
+  if (live) { activeOid = live.id; if (!unsubLive) listenLive(live.id); }
   renderOrders(); renderOrdersBadge(); renderLiveBanner();
   // Статистика профиля
   const tot   = orders.length;
@@ -549,7 +536,6 @@ function filterOrders() {
   if (currentOTab === 'active')    return orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
   if (currentOTab === 'delivered') return orders.filter(o => o.status === 'delivered');
   if (currentOTab === 'cancelled') return orders.filter(o => o.status === 'cancelled');
-  if (currentOTab === 'history')   return orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
   return orders;
 }
 
@@ -577,8 +563,7 @@ function renderOrders() {
         <div><div class="oc-total">${o.total} см</div><div class="oc-meta">${date} · ${o.address || ''}</div></div>
         <div class="oc-actions">
           ${['pending', 'confirmed'].includes(o.status) ? `<button class="btn-sm danger" onclick="cancelO('${o.id}')">Бекор</button>` : ''}
-          ${['delivering', 'confirmed', 'preparing', 'pending'].includes(o.status) ? `<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>` : ''}
-          ${o.status === 'delivered' ? `<button class="btn-sm" onclick="trackO('${o.id}')">Дида баромадан</button>` : ''}
+          ${['delivering', 'confirmed', 'preparing'].includes(o.status) ? `<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -621,8 +606,6 @@ function listenLive(oid) {
     if (['delivered', 'cancelled'].includes(o.status)) {
       if (unsubLive) { unsubLive(); unsubLive = null; }
       if (o.status === 'delivered') toast('🎉 Фармоиш расонида шуд!', 'ok');
-      // Перезагружаем все заказы чтобы история обновилась
-      await loadOrders();
     }
   });
 }
@@ -641,13 +624,9 @@ function renderLiveBanner() {
 function renderStatusPage() {
   const el = document.getElementById('status-content');
   if (!el) return;
-  // Показываем: выбранный заказ → активный → последний доставленный → первый в списке
-  const o = orders.find(x => x.id === activeOid)
-    || orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status))
-    || orders.find(o => o.status === 'delivered')
-    || orders[0];
+  const o = orders.find(x => x.id === activeOid) || orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
   if (!o) {
-    el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонии фармоиш ин ҷо намоён мешавад</div></div>';
+    el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';
     return;
   }
   const c   = SC[o.status] || '#888';
