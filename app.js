@@ -347,8 +347,112 @@ function renderPC(p) {
     : qty > 0
       ? `<div class="pc-qty"><button class="pc-qty-btn" onclick="event.stopPropagation();pcMinus('${p.id}')">−</button><div class="pc-qty-val">${qty}</div><button class="pc-qty-btn" onclick="event.stopPropagation();pcPlus('${p.id}')">+</button></div>`
       : `<button class="add-btn" onclick="event.stopPropagation();addToCart('${p.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`;
-  return `<div class="pc"><div class="pc-img">${imgHtml}${unavail ? '<div class="pc-badge">Нест</div>' : ''}</div><div class="pc-body"><div class="pc-cat">${catName(p.categoryId)}</div><div class="pc-name">${p.name}</div><div class="pc-desc">${p.description || ''}</div><div class="pc-footer"><div class="pc-price">${p.price}<span> см</span></div>${controls}</div></div></div>`;
+  return `<div class="pc" onclick="openProdModal('${p.id}')"><div class="pc-img">${imgHtml}${unavail ? '<div class="pc-badge">Нест</div>' : ''}</div><div class="pc-body"><div class="pc-cat">${catName(p.categoryId)}</div><div class="pc-name">${p.name}</div><div class="pc-desc">${p.description || ''}</div><div class="pc-footer"><div class="pc-price">${p.price}<span> см</span></div>${controls}</div></div></div>`;
 }
+
+// ─── Модалка карточки товара ──────────────────────────────────
+window.openProdModal = function (pid) {
+  const p = prods.find(x => x.id === pid);
+  if (!p) return;
+  renderProdModal(p);
+  document.getElementById('prod-modal-bg').classList.add('open');
+  document.getElementById('prod-modal-scroll').scrollTop = 0;
+};
+
+function renderProdModal(p) {
+  const qty     = getCartQty(p.id);
+  const unavail = !p.available;
+  const ic      = catIcon(p.categoryId, catName(p.categoryId));
+
+  const heroHtml = p.imageUrl
+    ? `<img src="${p.imageUrl}" alt="${p.name}" loading="lazy">`
+    : `<div class="p-modal-hero-ph">${ic.svg.replace('width="26" height="26"', 'width="80" height="80"')}</div>`;
+
+  // Теги (категория + наличие + доп поля если есть)
+  const tags = [];
+  if (catName(p.categoryId)) tags.push(catName(p.categoryId));
+  if (p.weight)  tags.push(p.weight + ' г');
+  if (p.volume)  tags.push(p.volume + ' мл');
+  if (p.brand)   tags.push(p.brand);
+  if (p.country) tags.push(p.country);
+  const tagsHtml = tags.length
+    ? `<div class="p-modal-tags">${tags.map(t => `<span class="p-modal-tag">${t}</span>`).join('')}</div>`
+    : '';
+
+  // Кнопка / счётчик
+  const ctrlHtml = unavail
+    ? `<button class="p-modal-add-btn" disabled>Маҳсулот нест</button>`
+    : qty > 0
+      ? `<div class="p-modal-price-row" style="flex-direction:column;align-items:stretch;gap:12px">
+           <div style="display:flex;align-items:center;justify-content:space-between">
+             <div class="p-modal-price">${p.price * qty}<span> см</span></div>
+             <div class="p-modal-qty-wrap">
+               <button class="p-modal-qty-btn" onclick="pmMinus('${p.id}')">−</button>
+               <div class="p-modal-qty-val" id="pm-qty-${p.id}">${qty}</div>
+               <button class="p-modal-qty-btn" onclick="pmPlus('${p.id}')">+</button>
+             </div>
+           </div>
+           <button class="p-modal-add-btn" onclick="closeProdModal();goPage('cart')">
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+             Ба сабад гузаштан
+           </button>
+         </div>`
+      : `<div class="p-modal-price-row">
+           <div class="p-modal-price">${p.price}<span> см</span></div>
+           <button class="p-modal-add-btn" style="width:auto;padding:12px 22px" onclick="pmAdd('${p.id}')">
+             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+             Илова
+           </button>
+         </div>`;
+
+  document.getElementById('prod-modal-inner').innerHTML = `
+    <div class="p-modal-hero">
+      ${heroHtml}
+      <button class="p-modal-close" onclick="closeProdModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      ${unavail ? '<div class="p-modal-badge-unavail">Мавҷуд нест</div>' : ''}
+    </div>
+    <div class="p-modal-body">
+      ${tagsHtml}
+      <div>
+        <div class="p-modal-cat">${catName(p.categoryId)}</div>
+        <div class="p-modal-name">${p.name}</div>
+      </div>
+      ${p.description ? `<div class="p-modal-desc">${p.description}</div>` : ''}
+      ${ctrlHtml}
+    </div>`;
+}
+
+// Кнопки внутри модалки товара
+window.pmAdd = async function (pid) {
+  await addToCart(pid);
+  const p = prods.find(x => x.id === pid);
+  if (p) renderProdModal(p); // перерисовать модалку с счётчиком
+};
+
+window.pmPlus = async function (pid) {
+  await addToCart(pid);
+  const p = prods.find(x => x.id === pid);
+  if (p) renderProdModal(p);
+};
+
+window.pmMinus = async function (pid) {
+  await pcMinus(pid);
+  const p = prods.find(x => x.id === pid);
+  const qty = getCartQty(pid);
+  if (!qty) { // если убрали последний — перерисовываем на кнопку "Илова"
+    if (p) renderProdModal(p);
+  } else {
+    const qEl = document.getElementById(`pm-qty-${pid}`);
+    if (qEl) qEl.textContent = qty;
+  }
+};
+
+window.closeProdModal = function (e) {
+  if (e && e.target !== document.getElementById('prod-modal-bg')) return;
+  document.getElementById('prod-modal-bg').classList.remove('open');
+};
 
 window.pcPlus  = async function (pid) { await addToCart(pid); };
 window.pcMinus = async function (pid) {
@@ -478,7 +582,7 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeOrderModal();
+  if (e.key === 'Escape') { closeOrderModal(); closeProdModal(); }
 });
 
 window.onSearch = function (v) {

@@ -421,6 +421,36 @@ select.addr-inp{cursor:pointer}
 .o-track-step.done .o-track-title,.o-track-step.cur .o-track-title{color:var(--tx)}
 .o-track-sub{font-size:.62rem;color:var(--tx3);margin-top:1px}
 .o-track-step.cur .o-track-sub{color:var(--acc);font-weight:600}
+/* ── PRODUCT MODAL ── */
+.p-modal-bg{position:fixed;inset:0;z-index:500;background:rgba(0,0,0,.5);backdrop-filter:blur(7px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.p-modal-bg.open{opacity:1;pointer-events:all}
+.p-modal{background:var(--s1);border-radius:24px 24px 0 0;width:100%;max-width:600px;max-height:94vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .32s var(--spring)}
+.p-modal-bg.open .p-modal{transform:translateY(0)}
+.p-modal-drag{width:40px;height:4px;background:var(--b1);border-radius:99px;margin:10px auto 4px;flex-shrink:0}
+.p-modal-scroll{overflow-y:auto;flex:1}
+.p-modal-hero{position:relative;width:100%;aspect-ratio:4/3;background:var(--s2);overflow:hidden;flex-shrink:0}
+.p-modal-hero img{width:100%;height:100%;object-fit:cover;display:block}
+.p-modal-hero-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;opacity:.15}
+.p-modal-close{position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:50%;background:rgba(0,0,0,.35);backdrop-filter:blur(8px);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;transition:background var(--tf)}
+.p-modal-close:hover{background:rgba(0,0,0,.55)}
+.p-modal-badge-unavail{position:absolute;top:14px;left:14px;background:var(--red);color:#fff;font-size:.52rem;font-weight:700;padding:4px 10px;border-radius:8px;text-transform:uppercase;letter-spacing:.08em}
+.p-modal-body{padding:20px 20px 36px;display:flex;flex-direction:column;gap:14px}
+.p-modal-cat{font-size:.48rem;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);font-weight:700}
+.p-modal-name{font-family:var(--fd);font-weight:900;font-size:1.45rem;color:var(--tx);line-height:1.1;letter-spacing:-.02em}
+.p-modal-desc{font-size:.78rem;color:var(--tx2);line-height:1.65}
+.p-modal-price-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;background:var(--s2);border-radius:14px;border:1.5px solid var(--b0)}
+.p-modal-price{font-family:var(--fd);font-weight:900;font-size:1.6rem;color:var(--tx);letter-spacing:-.02em}
+.p-modal-price span{font-size:.7rem;font-family:var(--fs);font-weight:400;color:var(--tx3)}
+.p-modal-qty-wrap{display:flex;align-items:center;gap:0;background:var(--s1);border:1.5px solid var(--accg);border-radius:12px;overflow:hidden}
+.p-modal-qty-btn{width:40px;height:40px;background:none;border:none;cursor:pointer;color:var(--tx3);font-size:1.2rem;font-weight:700;display:flex;align-items:center;justify-content:center;transition:color var(--tf),background var(--tf);flex-shrink:0}
+.p-modal-qty-btn:hover{color:var(--acc);background:var(--accd)}
+.p-modal-qty-val{min-width:36px;height:40px;text-align:center;line-height:40px;font-size:.9rem;font-weight:700;color:var(--tx);border-inline:1.5px solid var(--b0)}
+.p-modal-add-btn{width:100%;padding:15px;background:var(--accg);border:none;border-radius:14px;color:#fff;font-family:var(--fd);font-weight:900;font-size:.92rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s,transform .15s;letter-spacing:-.01em;box-shadow:0 4px 16px var(--acc-shadow)}
+.p-modal-add-btn:hover{opacity:.9;transform:translateY(-1px)}
+.p-modal-add-btn:active{transform:scale(.98)}
+.p-modal-add-btn:disabled{background:var(--s3);box-shadow:none;cursor:not-allowed;color:var(--tx3)}
+.p-modal-tags{display:flex;flex-wrap:wrap;gap:6px}
+.p-modal-tag{font-size:.58rem;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--s2);border:1px solid var(--b0);color:var(--tx3)}
 </style>
 </head>
 <body>
@@ -637,6 +667,16 @@ select.addr-inp{cursor:pointer}
       </button>
     </div>
     <div class="o-modal-scroll" id="order-modal-body"></div>
+  </div>
+</div>
+
+<!-- PRODUCT MODAL -->
+<div class="p-modal-bg" id="prod-modal-bg" onclick="closeProdModal(event)">
+  <div class="p-modal" id="prod-modal">
+    <div class="p-modal-drag"></div>
+    <div class="p-modal-scroll" id="prod-modal-scroll">
+      <div id="prod-modal-inner"></div>
+    </div>
   </div>
 </div>
 
