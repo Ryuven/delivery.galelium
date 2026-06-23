@@ -477,6 +477,10 @@ document.addEventListener('click', e => {
   if (sb && !sb.contains(e.target)) closeSD();
 });
 
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeOrderModal();
+});
+
 window.onSearch = function (v) {
   searchQ = v;
   renderCatalog();
@@ -688,7 +692,8 @@ function renderOrders() {
     const num   = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
     const items = (o.items || []).map(i => `${i.name} ×${i.quantity}`).join(', ');
     const date  = fmtDate(o.createdAt);
-    return `<div class="oc st-${o.status}">
+    const isActive = ['pending','confirmed','preparing','delivering'].includes(o.status);
+    return `<div class="oc st-${o.status}" onclick="openOrderModal('${o.id}')" style="cursor:pointer">
       <div class="oc-head">
         <div class="oc-num">Фармоиш ${num}</div>
         <div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div>
@@ -696,14 +701,167 @@ function renderOrders() {
       <div class="oc-items">${items}</div>
       <div class="oc-footer">
         <div><div class="oc-total">${o.total} см</div><div class="oc-meta">${date} · ${o.address || ''}</div></div>
-        <div class="oc-actions">
-          ${['pending', 'confirmed'].includes(o.status) ? `<button class="btn-sm danger" onclick="cancelO('${o.id}')">Бекор</button>` : ''}
-          ${['delivering', 'confirmed', 'preparing'].includes(o.status) ? `<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>` : ''}
+        <div class="oc-actions" onclick="event.stopPropagation()">
+          ${isActive ? `<div style="width:7px;height:7px;border-radius:50%;background:${c};animation:rpulse 2s infinite;flex-shrink:0"></div>` : ''}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       </div>
     </div>`;
   }).join('');
 }
+
+// ─── Модалка детали заказа + чек ──────────────────────────────
+window.openOrderModal = function (oid) {
+  const o = orders.find(x => x.id === oid);
+  if (!o) return;
+  const num   = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+  const c     = SC[o.status] || '#888';
+  const l     = SL[o.status] || o.status;
+  const si    = STEPS.indexOf(o.status);
+  const pay   = o.paymentMethod === 'cash' ? 'Нақдӣ 💵' : o.paymentMethod === 'card' ? 'Корт 💳' : 'Онлайн 📱';
+  const date  = fmtDate(o.createdAt);
+  const isActive = ['pending','confirmed','preparing','delivering'].includes(o.status);
+  const sub   = (o.items||[]).reduce((s,i) => s + i.price*i.quantity, 0);
+  const delivery = o.total - sub;
+
+  // Timeline вертикальный
+  const stepIcons = ['⏳','✅','👨‍🍳','🛵','🎉'];
+  const stepSubs  = ['Фармоиш қабул шуд', 'Тасдиқ аз тарафи мо', 'Ошпазон омода мекунад', 'Курьер дар роҳ аст', 'Расонида шуд'];
+  const timeline  = STEPS.map((s, i) => {
+    const cls = i < si ? 'done' : i === si ? 'cur' : '';
+    return `<div class="o-track-step ${cls}">
+      <div class="o-track-dot">${i <= si ? stepIcons[i] : ''}</div>
+      <div class="o-track-info">
+        <div class="o-track-title">${SL[s]}</div>
+        <div class="o-track-sub">${i === si ? stepSubs[i] : i < si ? 'Анҷом ёфт ✓' : stepSubs[i]}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // QR — кодируем короткий ID заказа
+  const qrData  = encodeURIComponent(`GAL-${o.id}`);
+  const qrUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${qrData}&color=1a9e4a&bgcolor=ffffff&margin=8&format=png`;
+
+  // Чек
+  const itemsHtml = (o.items||[]).map(i =>
+    `<div class="receipt-row">
+      <span class="receipt-row-name">${i.name}</span>
+      <span class="receipt-row-qty">×${i.quantity}</span>
+      <span class="receipt-row-price">${i.price * i.quantity} см</span>
+    </div>`
+  ).join('');
+
+  document.getElementById('order-modal-title').textContent = `Фармоиш ${num}`;
+  document.getElementById('order-modal-body').innerHTML = `
+
+    ${isActive ? `<div style="margin:14px 0 4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--tx3)">Марҳилаи фармоиш</div>
+        <button class="btn-sm primary" onclick="closeOrderModal();trackO('${o.id}')">Пайгирии зинда →</button>
+      </div>
+      <div class="o-track">${timeline}</div>
+    </div>` : ''}
+
+    <div class="receipt">
+      <!-- шапка чека -->
+      <div class="receipt-top">
+        <div class="receipt-brand">Galelium Delivery</div>
+        <div class="receipt-order-num">Фармоиш ${num}</div>
+        <div class="receipt-status-row">
+          <div class="receipt-status-dot" style="background:${c}"></div>
+          <div class="receipt-status-lbl">${l}</div>
+        </div>
+      </div>
+      <!-- волна -->
+      <svg class="receipt-wave" viewBox="0 0 600 20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><path d="M0 0 Q150 20 300 10 Q450 0 600 15 L600 0 Z" fill="#fff"/></svg>
+
+      <div class="receipt-body">
+        <!-- товары -->
+        <div class="receipt-section">
+          <div class="receipt-section-title">Таркиб</div>
+          ${itemsHtml}
+        </div>
+
+        <div class="receipt-divider"></div>
+
+        <!-- итоги -->
+        <div class="receipt-section" style="margin-bottom:8px">
+          <div class="receipt-total-row">
+            <span class="receipt-total-label">Маҳсулот</span>
+            <span class="receipt-total-val">${sub} см</span>
+          </div>
+          <div class="receipt-total-row">
+            <span class="receipt-total-label">Расонидан</span>
+            <span class="receipt-total-val">${delivery > 0 ? delivery : DFEE} см</span>
+          </div>
+          <div class="receipt-divider" style="margin:8px 0"></div>
+          <div class="receipt-total-row big">
+            <span class="receipt-total-label">Ҷамъ</span>
+            <span class="receipt-total-val">${o.total} см</span>
+          </div>
+        </div>
+
+        <!-- инфо -->
+        <div class="receipt-section">
+          <div class="receipt-section-title">Маълумот</div>
+          <div class="receipt-info-grid">
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Суроғ</div>
+              <div class="receipt-info-val">${o.address || '—'}</div>
+            </div>
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Пардохт</div>
+              <div class="receipt-info-val">${pay}</div>
+            </div>
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Курьер</div>
+              <div class="receipt-info-val">${o.courierName || 'Таъин мешавад…'}</div>
+            </div>
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Вақт</div>
+              <div class="receipt-info-val">${date}</div>
+            </div>
+          </div>
+          ${o.comment ? `<div class="receipt-info-item" style="margin-top:10px">
+            <div class="receipt-info-label">Изоҳ</div>
+            <div class="receipt-info-val">${o.comment}</div>
+          </div>` : ''}
+        </div>
+
+        <!-- QR -->
+        <div class="receipt-qr-wrap">
+          <div class="receipt-qr">
+            <img src="${qrUrl}" alt="QR" loading="lazy">
+          </div>
+          <div class="receipt-qr-hint">Рамзи фармоиш · GAL-${o.id.slice(-8).toUpperCase()}</div>
+        </div>
+      </div>
+
+      <div class="receipt-footer">
+        <div class="receipt-footer-brand">Galelium Delivery</div>
+        <div class="receipt-footer-ts">${date}</div>
+      </div>
+    </div>
+
+    ${['pending','confirmed'].includes(o.status) ? `
+    <div style="margin-top:4px;margin-bottom:8px">
+      <button class="btn-sm danger" style="width:100%;padding:10px;font-size:.64rem" onclick="cancelO('${o.id}');closeOrderModal()">Фармоишро бекор кунед</button>
+    </div>` : ''}
+  `;
+
+  document.getElementById('order-modal-bg').classList.add('open');
+  // Если заказ активный — начинаем слушать
+  if (isActive && activeOid !== o.id) {
+    activeOid = o.id;
+    listenLive(o.id);
+  }
+};
+
+window.closeOrderModal = function (e) {
+  if (e && e.target !== document.getElementById('order-modal-bg')) return;
+  document.getElementById('order-modal-bg').classList.remove('open');
+};
+
 
 function renderOrdersBadge() {
   const act = orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status)).length;
@@ -740,6 +898,13 @@ function listenLive(oid) {
     if (activeOid === oid || !activeOid) activeOid = oid;
     renderOrders(); renderOrdersBadge(); renderLiveBanner();
     if (document.getElementById('page-status')?.classList.contains('active')) renderStatusPage();
+    // Обновить открытую модалку если она показывает этот заказ
+    const modalBg = document.getElementById('order-modal-bg');
+    if (modalBg?.classList.contains('open')) {
+      const title = document.getElementById('order-modal-title')?.textContent || '';
+      const num   = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+      if (title.includes(num.replace('#',''))) openOrderModal(oid);
+    }
     if (['delivered', 'cancelled'].includes(o.status)) {
       if (unsubLive) { unsubLive(); unsubLive = null; }
       if (o.status === 'delivered') toast('🎉 Фармоиш расонида шуд!', 'ok');
