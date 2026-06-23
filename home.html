@@ -385,14 +385,14 @@ select.addr-inp{cursor:pointer}
         </button>
       </div>
       <div class="sh"><div><div class="sh-tag">Машҳур</div><div class="sh-title">Хитҳои <em>меню</em></div></div><button class="sh-link" onclick="goPage('catalog')">Ҳамаи каталог →</button></div>
-      <div class="pg" id="home-prods"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
+      <div class="pg" id="home-prods"><div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонии фармоиш ин ҷо намоён мешавад</div></div></div>
     </div>
 
     <!-- CATALOG -->
     <div class="page" id="page-catalog">
       <div class="sh"><div><div class="sh-tag">Ҳамаи мавқеъҳо</div><div class="sh-title">Каталог</div></div></div>
       <div class="cats" id="cats"><button class="cat active" onclick="filterCat('all')">Ҳама</button></div>
-      <div class="pg" id="cat-prods"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
+      <div class="pg" id="cat-prods"><div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонии фармоиш ин ҷо намоён мешавад</div></div></div>
     </div>
 
     <!-- CART -->
@@ -429,17 +429,16 @@ select.addr-inp{cursor:pointer}
       <div class="order-tabs">
         <button class="otab active" onclick="setOTab('all',this)">Ҳама</button>
         <button class="otab" onclick="setOTab('active',this)">Фаъол</button>
-        <button class="otab" onclick="setOTab('delivered',this)">Расонида шуд</button>
-        <button class="otab" onclick="setOTab('cancelled',this)">Бекор</button>
+        <button class="otab" onclick="setOTab('history',this)">Таърих</button>
       </div>
-      <div id="orders-list"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
+      <div id="orders-list"><div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонии фармоиш ин ҷо намоён мешавад</div></div></div>
     </div>
 
     <!-- STATUS -->
     <div class="page" id="page-status">
       <div class="sh"><div><div class="sh-tag">Пайгирӣ</div><div class="sh-title">Ҳолати <em>фармоиш</em></div></div></div>
       <div id="status-content">
-        <div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонӣ ин ҷо намоён мешавад</div></div>
+        <div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонии фармоиш ин ҷо намоён мешавад</div></div>
       </div>
     </div>
 
