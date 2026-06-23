@@ -184,8 +184,8 @@ window.goPage = function (page) {
     status:  'Ҳолати фармоиш',
     profile: 'Профил',
   }[page] || 'Galelium Delivery';
-  if (page === 'status') renderStatusPage();
-  if (page === 'orders') loadOrders();
+  if (page === 'status') { renderStatusPage(); }
+  if (page === 'orders') { loadOrders(); }
   closeSB();
   document.getElementById('pages').scrollTop = 0;
 };
@@ -497,9 +497,10 @@ window.doCheckout = async function () {
     cart = [];
     renderCart(); updateBadges();
     toast('Фармоиш №' + oNum + ' расмикунонӣ шуд! 🎉', 'ok');
+    // Сначала слушаем, потом грузим заказы и переходим
+    listenLive(ref.id);
     await loadOrders();
     goPage('status');
-    listenLive(ref.id);
   } catch (e) {
     toast('Хато: ' + e.message, 'err');
     btn.disabled = false;
@@ -510,26 +511,25 @@ window.doCheckout = async function () {
 // ─── Заказы ──────────────────────────────────────────────────
 async function loadOrders() {
   try {
-    // Используем только where без orderBy — не требует composite index в Firestore
-    const q = query(collection(db, 'orders'), where('clientId', '==', CU.uid));
+    const q = query(collection(db, 'orders'), where('clientId', '==', CU.uid), orderBy('createdAt', 'desc'));
     const s = await getDocs(q);
     orders = s.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Сортируем на стороне клиента по дате убывания
-    orders.sort((a, b) => {
-      const ta = a.createdAt?.toMillis?.() || 0;
-      const tb = b.createdAt?.toMillis?.() || 0;
-      return tb - ta;
-    });
   } catch (e) {
-    console.error('loadOrders error:', e);
-    orders = [];
+    // Если индекс не создан — пробуем без orderBy, сортируем на клиенте
+    try {
+      const q2 = query(collection(db, 'orders'), where('clientId', '==', CU.uid));
+      const s2 = await getDocs(q2);
+      orders = s2.docs.map(d => ({ id: d.id, ...d.data() }));
+      orders.sort((a, b) => {
+        const ta = a.createdAt?.toMillis?.() ?? 0;
+        const tb = b.createdAt?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+    } catch { orders = []; }
   }
   const live = orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
-  if (live) {
-    activeOid = live.id;
-    if (!unsubLive) listenLive(live.id);
-  }
-  renderOrders(); renderOrdersBadge(); renderLiveBanner(); renderStatusPage();
+  if (live) { activeOid = live.id; if (!unsubLive) listenLive(live.id); }
+  renderOrders(); renderOrdersBadge(); renderLiveBanner();
   // Статистика профиля
   const tot   = orders.length;
   const spent = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0);
@@ -549,7 +549,6 @@ function filterOrders() {
   if (currentOTab === 'active')    return orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
   if (currentOTab === 'delivered') return orders.filter(o => o.status === 'delivered');
   if (currentOTab === 'cancelled') return orders.filter(o => o.status === 'cancelled');
-  if (currentOTab === 'history')   return orders.filter(o => ['delivered', 'cancelled'].includes(o.status));
   return orders;
 }
 
@@ -577,8 +576,7 @@ function renderOrders() {
         <div><div class="oc-total">${o.total} см</div><div class="oc-meta">${date} · ${o.address || ''}</div></div>
         <div class="oc-actions">
           ${['pending', 'confirmed'].includes(o.status) ? `<button class="btn-sm danger" onclick="cancelO('${o.id}')">Бекор</button>` : ''}
-          ${['delivering', 'confirmed', 'preparing', 'pending'].includes(o.status) ? `<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>` : ''}
-          ${o.status === 'delivered' ? `<button class="btn-sm" onclick="trackO('${o.id}')">Дида баромадан</button>` : ''}
+          ${['delivering', 'confirmed', 'preparing'].includes(o.status) ? `<button class="btn-sm primary" onclick="trackO('${o.id}')">Пайгирӣ</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -616,13 +614,13 @@ function listenLive(oid) {
     const o   = { id: snap.id, ...snap.data() };
     const idx = orders.findIndex(x => x.id === oid);
     if (idx >= 0) orders[idx] = o; else orders.unshift(o);
-    renderOrders(); renderOrdersBadge(); renderLiveBanner(); renderStatusPage();
-    if (document.getElementById('page-status').classList.contains('active')) renderStatusPage();
+    // Обновляем activeOid чтобы страница статуса показывала правильный заказ
+    if (activeOid === oid || !activeOid) activeOid = oid;
+    renderOrders(); renderOrdersBadge(); renderLiveBanner();
+    if (document.getElementById('page-status')?.classList.contains('active')) renderStatusPage();
     if (['delivered', 'cancelled'].includes(o.status)) {
       if (unsubLive) { unsubLive(); unsubLive = null; }
       if (o.status === 'delivered') toast('🎉 Фармоиш расонида шуд!', 'ok');
-      // Перезагружаем все заказы чтобы история обновилась
-      await loadOrders();
     }
   });
 }
@@ -641,13 +639,12 @@ function renderLiveBanner() {
 function renderStatusPage() {
   const el = document.getElementById('status-content');
   if (!el) return;
-  // Показываем: выбранный заказ → активный → последний доставленный → первый в списке
-  const o = orders.find(x => x.id === activeOid)
-    || orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status))
-    || orders.find(o => o.status === 'delivered')
-    || orders[0];
+  let o = null;
+  if (activeOid) o = orders.find(x => x.id === activeOid);
+  if (!o) o = orders.find(x => ['pending', 'confirmed', 'preparing', 'delivering'].includes(x.status));
+  if (!o && orders.length > 0) o = orders[0];
   if (!o) {
-    el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонии фармоиш ин ҷо намоён мешавад</div></div>';
+    el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';
     return;
   }
   const c   = SC[o.status] || '#888';
