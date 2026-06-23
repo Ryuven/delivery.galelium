@@ -27,12 +27,15 @@ let cart      = [];
 let prods     = [];
 let cats      = [];
 let orders    = [];
+let stores    = [];     // каталоги магазинов
 let catFilter = 'all';
 let searchQ   = '';
 let activeOid = null;
 let unsubLive = null;
-let currentOTab = 'all';
-let homeSearchQ = '';
+let currentOTab   = 'all';
+let homeSearchQ   = '';
+let activeStore   = null;  // текущий открытый магазин
+let storeCatFilter = 'all'; // фильтр категорий внутри магазина
 
 const DFEE = 7; // стоимость доставки
 
@@ -125,7 +128,7 @@ onAuthStateChanged(auth, async u => {
   if (!u) { location.href = 'login.html'; return; }
   CU = u;
   await loadUD();
-  await Promise.all([loadCart(), loadProds(), loadCats(), loadOrders()]);
+  await Promise.all([loadCart(), loadProds(), loadCats(), loadOrders(), loadStores()]);
   renderSB();
   renderProfile();
   setAddr();
@@ -177,6 +180,7 @@ window.goPage = function (page) {
     .forEach(n => n.classList.add('active'));
   const tb = document.getElementById('tb-title');
   if (page === 'home') tb.innerHTML = 'Galelium <em>Delivery</em>';
+  else if (page === 'store') tb.textContent = activeStore?.name || 'Каталог';
   else tb.textContent = {
     catalog: 'Каталог',
     cart:    'Сабад',
@@ -186,9 +190,125 @@ window.goPage = function (page) {
   }[page] || 'Galelium Delivery';
   if (page === 'status') { renderStatusPage(); }
   if (page === 'orders') { loadOrders(); }
+  if (page === 'store')  { renderStorePage(); }
   closeSB();
   document.getElementById('pages').scrollTop = 0;
 };
+
+// ─── Магазины / Каталоги ──────────────────────────────────────
+async function loadStores() {
+  try {
+    const s = await getDocs(query(collection(db, 'stores'), orderBy('order')));
+    stores = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch {
+    // Если нет поля order — грузим без сортировки
+    try {
+      const s2 = await getDocs(collection(db, 'stores'));
+      stores = s2.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch { stores = []; }
+  }
+  renderStoresGrid();
+}
+
+function renderStoresGrid() {
+  const el = document.getElementById('stores-grid');
+  if (!el) return;
+  if (!stores.length) {
+    el.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--tx3);font-size:.76rem">Дӯконҳо ёфт нашуданд</div>';
+    return;
+  }
+  el.innerHTML = stores.map(s => {
+    const imgUrl  = s.imageUrl || '';
+    const prodCnt = prods.filter(p => p.storeId === s.id && p.available !== false).length;
+    const badge   = s.badge || (prodCnt > 0 ? prodCnt + ' маҳсулот' : 'Ба зудӣ');
+    return `
+    <div class="store-card" onclick="openStore('${s.id}')" title="${s.name}">
+      <div class="store-card-img-wrap">
+        ${imgUrl
+          ? `<img class="store-card-img" src="${imgUrl}" alt="${s.name}" loading="lazy" onerror="this.style.display='none'">`
+          : `<div class="store-card-placeholder"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg><span>${s.name}</span></div>`}
+      </div>
+      <div class="store-card-overlay"></div>
+      <div class="store-card-body">
+        <div>
+          <div class="store-card-name">${s.name}</div>
+          ${s.description ? `<div class="store-card-meta">${s.description}</div>` : ''}
+        </div>
+        <div class="store-card-badge">${badge}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.openStore = function (sid) {
+  activeStore     = stores.find(s => s.id === sid);
+  storeCatFilter  = 'all';
+  if (!activeStore) return;
+  goPage('store');
+};
+
+window.filterStoreCat = function (id) {
+  storeCatFilter = id;
+  renderStoreCatPills();
+  renderStoreProds();
+};
+
+function renderStorePage() {
+  if (!activeStore) return;
+
+  // Шапка магазина
+  const hdr = document.getElementById('store-header');
+  if (hdr) {
+    const imgUrl = activeStore.imageUrl || '';
+    hdr.innerHTML = `
+    <div class="store-cat-header">
+      ${imgUrl ? `<img class="store-cat-header-img" src="${imgUrl}" alt="${activeStore.name}">` : ''}
+      <div class="store-cat-header-overlay"></div>
+      <div class="store-cat-header-body">
+        <div class="store-cat-header-tag">Дӯкон</div>
+        <div class="store-cat-header-name">${activeStore.name}</div>
+        ${activeStore.description ? `<div class="store-cat-header-desc">${activeStore.description}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  renderStoreCatPills();
+  renderStoreProds();
+}
+
+function getStoreCats() {
+  if (!activeStore) return [];
+  const storeProdIds = new Set(
+    prods.filter(p => p.storeId === activeStore.id).map(p => p.categoryId)
+  );
+  return cats.filter(c => storeProdIds.has(c.id));
+}
+
+function renderStoreCatPills() {
+  const el = document.getElementById('store-cats');
+  if (!el) return;
+  const storeCats = getStoreCats();
+  el.innerHTML = `<button class="cat${storeCatFilter === 'all' ? ' active' : ''}" onclick="filterStoreCat('all')">Ҳама</button>`
+    + storeCats.map(c =>
+        `<button class="cat${storeCatFilter === c.id ? ' active' : ''}" onclick="filterStoreCat('${c.id}')">${c.name}</button>`
+      ).join('');
+}
+
+function renderStoreProds() {
+  const el = document.getElementById('store-prods');
+  if (!el || !activeStore) return;
+  let list = prods.filter(p => p.storeId === activeStore.id);
+  if (storeCatFilter !== 'all') list = list.filter(p => p.categoryId === storeCatFilter);
+  if (!list.length) {
+    el.innerHTML = `<div class="store-cat-empty" style="grid-column:1/-1">
+      <span class="store-cat-empty-ico">📦</span>
+      <div class="store-cat-empty-t">Маҳсулот ҳоло нест</div>
+      <div class="store-cat-empty-s">Ба зудӣ маҳсулот илова мешавад</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map(renderPC).join('');
+}
 
 window.toggleSB = function () {
   document.getElementById('sidebar').classList.toggle('open');
@@ -211,6 +331,8 @@ async function loadProds() {
   renderHomeProds();
   renderCatalog();
   renderHomeCats();
+  renderStoreProds();
+  renderStoresGrid();
 }
 
 function renderPC(p) {
@@ -241,7 +363,7 @@ window.pcMinus = async function (pid) {
     await updateDoc(cr, { quantity: nq, updatedAt: serverTimestamp() });
     item.quantity = nq;
   }
-  renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+  renderCart(); renderHomeProds(); renderCatalog(); renderStoreProds(); updateBadges();
 };
 
 function renderHomeProds() {
@@ -386,7 +508,7 @@ window.addToCart = async function (pid) {
       cart.push({ id: p.id, ...item });
     }
     toast(p.name + ' илова шуд', 'ok');
-    renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+    renderCart(); renderHomeProds(); renderCatalog(); renderStoreProds(); updateBadges();
   } catch { toast('Хато', 'err'); }
 };
 
@@ -418,7 +540,7 @@ window.clearCartUI = async function () {
   cart.forEach(c => b.delete(doc(db, 'users', CU.uid, 'cart', c.productId)));
   await b.commit();
   cart = [];
-  renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+  renderCart(); renderHomeProds(); renderCatalog(); renderStoreProds(); updateBadges();
 };
 
 function renderCart() {

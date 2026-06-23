@@ -288,6 +288,42 @@ select.addr-inp{cursor:pointer}
 .tdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:var(--acc)}
 .toast.ok .tdot{background:var(--acc)}.toast.err .tdot{background:var(--red)}.toast.info .tdot{background:var(--blue)}
 
+/* ── STORES ── */
+.stores-section{margin-bottom:28px}
+.stores-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.store-card{position:relative;border-radius:18px;overflow:hidden;cursor:pointer;aspect-ratio:512/256;border:1.5px solid var(--b0);box-shadow:var(--shadow);transition:transform .22s var(--spring),box-shadow .22s,border-color .18s;background:var(--s2)}
+.store-card:hover{transform:translateY(-4px) scale(1.01);box-shadow:0 12px 36px rgba(0,0,0,.13);border-color:var(--accg)}
+.store-card:active{transform:scale(.98)}
+.store-card-img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .35s var(--ease)}
+.store-card:hover .store-card-img{transform:scale(1.04)}
+.store-card-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.55) 0%,rgba(0,0,0,.1) 50%,transparent 100%);transition:opacity .2s}
+.store-card:hover .store-card-overlay{opacity:.85}
+.store-card-body{position:absolute;bottom:0;left:0;right:0;padding:14px 16px 13px;display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.store-card-name{font-family:var(--fd);font-weight:900;font-size:1.05rem;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.4);letter-spacing:-.01em;line-height:1.1}
+.store-card-meta{font-size:.58rem;color:rgba(255,255,255,.8);margin-top:3px;font-weight:500}
+.store-card-badge{background:rgba(255,255,255,.18);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:.55rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+.store-card-skeleton{background:linear-gradient(90deg,var(--s2) 25%,var(--s3) 50%,var(--s2) 75%);background-size:200% 100%;animation:skl 1.4s ease-in-out infinite}
+@keyframes skl{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.store-card-img-wrap{position:absolute;inset:0;overflow:hidden}
+.store-card-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--tx3)}
+.store-card-placeholder svg{opacity:.2}
+.store-card-placeholder span{font-size:.68rem;opacity:.4}
+
+/* ── STORE CATALOG PAGE ── */
+.store-cat-header{position:relative;border-radius:18px;overflow:hidden;aspect-ratio:512/180;margin-bottom:20px;border:1.5px solid var(--b0);box-shadow:var(--shadow-md)}
+.store-cat-header-img{width:100%;height:100%;object-fit:cover;display:block}
+.store-cat-header-overlay{position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,.6) 0%,rgba(0,0,0,.2) 60%,transparent 100%)}
+.store-cat-header-body{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:20px 24px}
+.store-cat-header-tag{font-size:.44rem;letter-spacing:.28em;text-transform:uppercase;color:rgba(255,255,255,.7);margin-bottom:5px;font-weight:600}
+.store-cat-header-name{font-family:var(--fd);font-weight:900;font-size:1.6rem;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.3);letter-spacing:-.02em;line-height:1}
+.store-cat-header-desc{font-size:.72rem;color:rgba(255,255,255,.8);margin-top:6px;max-width:260px;line-height:1.5}
+.store-cat-back{display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;font-size:.72rem;color:var(--tx3);border:none;background:none;cursor:pointer;padding:6px 10px 6px 6px;border-radius:8px;font-family:var(--fs);font-weight:600;transition:all .13s}
+.store-cat-back:hover{background:var(--s2);color:var(--tx)}
+.store-cat-empty{text-align:center;padding:52px 20px}
+.store-cat-empty-ico{font-size:3rem;opacity:.15;margin-bottom:12px;display:block}
+.store-cat-empty-t{font-size:.88rem;font-weight:700;color:var(--tx3);margin-bottom:5px}
+.store-cat-empty-s{font-size:.72rem;color:var(--tx3)}
+
 /* ── MOBILE ── */
 .mob-nav{display:none}
 .sb-overlay{display:none;position:fixed;inset:0;z-index:99;background:rgba(0,0,0,.38);backdrop-filter:blur(4px)}
@@ -314,6 +350,8 @@ select.addr-inp{cursor:pointer}
   .pg2{grid-template-columns:1fr}
   .cat-panels{grid-template-columns:repeat(2,1fr)}
   .pg{grid-template-columns:repeat(2,1fr)}
+  .stores-grid{grid-template-columns:1fr}
+  .store-cat-header{aspect-ratio:512/200}
 }
 @media(max-width:480px){.cat-panels{grid-template-columns:repeat(2,1fr)}.pg{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:360px){.pg{grid-template-columns:1fr}}
@@ -376,6 +414,18 @@ select.addr-inp{cursor:pointer}
           <div class="search-dropdown" id="search-dd"></div>
         </div>
       </div>
+      <!-- STORES SECTION -->
+      <div class="stores-section" id="stores-section">
+        <div class="sh" style="margin-bottom:14px">
+          <div><div class="sh-tag">Дӯконҳо</div><div class="sh-title">Каталогҳои <em>мо</em></div></div>
+        </div>
+        <div class="stores-grid" id="stores-grid">
+          <div class="store-card store-card-skeleton"></div>
+          <div class="store-card store-card-skeleton"></div>
+          <div class="store-card store-card-skeleton"></div>
+        </div>
+      </div>
+
       <div class="home-cats-wrap">
         <div class="sh" style="margin-bottom:12px"><div><div class="sh-tag">Категорияҳо</div><div class="sh-title">Аз куҷо <em>фармоиш</em> диҳем?</div></div></div>
         <div class="cat-panels" id="home-cats"></div>
@@ -433,6 +483,17 @@ select.addr-inp{cursor:pointer}
         <button class="otab" onclick="setOTab('cancelled',this)">Бекор</button>
       </div>
       <div id="orders-list"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
+    </div>
+
+    <!-- STORE CATALOG -->
+    <div class="page" id="page-store">
+      <button class="store-cat-back" onclick="goPage('home')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Саҳифаи асосӣ
+      </button>
+      <div id="store-header"></div>
+      <div class="cats" id="store-cats"><button class="cat active" onclick="filterStoreCat('all')">Ҳама</button></div>
+      <div class="pg" id="store-prods"><div class="pload"><div class="spin"></div> Боргузорӣ…</div></div>
     </div>
 
     <!-- STATUS -->
