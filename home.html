@@ -553,6 +553,24 @@ select.addr-inp{cursor:pointer}
 .addr-card-val.empty{color:var(--tx3);font-weight:400;font-style:italic}
 .addr-card-arrow{color:var(--tx3);flex-shrink:0}
 .addr-card-coords{font-size:.58rem;color:var(--acc);margin-top:2px;font-weight:500}
+/* ── AUTH WALL ── */
+.auth-wall{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:52px 28px;text-align:center;min-height:380px}
+.auth-wall-ico{width:80px;height:80px;border-radius:24px;background:var(--accd);border:2px solid var(--accg);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;color:var(--acc)}
+.auth-wall-title{font-family:var(--fd);font-weight:900;font-size:1.3rem;color:var(--tx);letter-spacing:-.02em;margin-bottom:8px}
+.auth-wall-sub{font-size:.76rem;color:var(--tx3);line-height:1.6;max-width:260px;margin:0 auto 28px}
+.auth-wall-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--accg);color:#fff;border:none;border-radius:14px;padding:13px 28px;font-family:var(--fd);font-weight:900;font-size:.88rem;cursor:pointer;box-shadow:0 4px 18px rgba(26,158,74,.3);transition:opacity .15s,transform .12s;text-decoration:none;letter-spacing:-.01em}
+.auth-wall-btn:hover{opacity:.91;transform:translateY(-1px)}
+.auth-wall-btn:active{transform:scale(.97)}
+.auth-wall-hint{font-size:.64rem;color:var(--tx3);margin-top:14px}
+.auth-wall-hint a{color:var(--acc);text-decoration:none;font-weight:600}
+
+/* Гостевой сайдбар */
+.sb-guest{padding:20px 16px;display:flex;flex-direction:column;gap:10px}
+.sb-guest-title{font-family:var(--fd);font-weight:900;font-size:1.1rem;color:var(--tx);letter-spacing:-.02em;line-height:1.2;margin-bottom:4px}
+.sb-guest-sub{font-size:.7rem;color:var(--tx3);line-height:1.5;margin-bottom:8px}
+.sb-guest-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;background:var(--accg);color:#fff;border:none;border-radius:12px;font-family:var(--fd);font-weight:800;font-size:.82rem;cursor:pointer;box-shadow:0 3px 12px rgba(26,158,74,.25);transition:opacity .14s}
+.sb-guest-btn:hover{opacity:.9}
+.sb-guest-btn.outline{background:var(--s2);color:var(--tx);border:1.5px solid var(--b1);box-shadow:none;margin-top:0}
 </style>
 <!-- Leaflet (бесплатно, без API ключа) -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>

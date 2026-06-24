@@ -125,21 +125,41 @@ window.toast = function (msg, type = '') {
 
 // ─── Auth: инициализация приложения ──────────────────────────
 onAuthStateChanged(auth, async u => {
-  if (!u) { location.href = 'login.html'; return; }
-  CU = u;
-  await loadUD();
-  await Promise.all([loadCart(), loadProds(), loadCats(), loadOrders(), loadStores()]);
-  renderSB();
-  renderProfile();
-  setAddr();
-  renderCart();
+  CU = u || null;
+
+  // Публичные данные — грузим всегда
+  await Promise.all([loadProds(), loadCats(), loadStores()]);
+  renderHomeCats();
+  renderHomeProds();
+  renderStoresGrid();
+
+  if (CU) {
+    // Авторизован — грузим личные данные
+    await loadUD();
+    await Promise.all([loadCart(), loadOrders()]);
+    renderSB();
+    renderProfile();
+    setAddr();
+    renderCart();
+    updateBadges();
+    const live = orders.find(o => ['pending','confirmed','preparing','delivering'].includes(o.status));
+    if (live) { activeOid = live.id; if (!unsubLive) listenLive(live.id); }
+  } else {
+    // Гость — показываем гостевой сайдбар
+    renderSBGuest();
+    updateBadges();
+  }
 });
 
 // ─── Выход из аккаунта ────────────────────────────────────────
 window.doLogout = async function () {
-  if (unsubLive) unsubLive();
+  if (unsubLive) { unsubLive(); unsubLive = null; }
   await signOut(auth);
-  location.href = 'login.html';
+  // После выхода — остаёмся на странице, переходим на главную как гость
+  CU = null; UD = null; cart = []; orders = [];
+  renderSBGuest();
+  goPage('home');
+  updateBadges();
 };
 
 // ─── Загрузка данных пользователя ────────────────────────────
@@ -156,6 +176,7 @@ async function loadUD() {
 
 // ─── Рендер сайдбара ─────────────────────────────────────────
 function renderSB() {
+  if (!CU) { renderSBGuest(); return; }
   const name = UD?.displayName || CU.email || 'Муштарӣ';
   const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
   document.getElementById('sb-uname').textContent = name;
@@ -171,8 +192,85 @@ function renderSB() {
   }
 }
 
+function renderSBGuest() {
+  // Аватар — иконка гостя
+  const av = document.getElementById('sb-av');
+  if (av) av.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  const uname = document.getElementById('sb-uname');
+  if (uname) uname.textContent = 'Меҳмон';
+  // Адрес — скрыть
+  const adv = document.getElementById('sb-addr-val');
+  if (adv) { adv.textContent = 'Барои нишон додани суроғ ворид шавед'; adv.classList.add('empty'); }
+  // Вставляем гостевой блок перед nav-items
+  const sbBody = document.getElementById('sb-body');
+  if (sbBody && !document.getElementById('sb-guest-block')) {
+    const div = document.createElement('div');
+    div.id = 'sb-guest-block';
+    div.className = 'sb-guest';
+    div.innerHTML = `
+      <div class="sb-guest-title">Ворид шавед ё<br>ҳисоб созед</div>
+      <div class="sb-guest-sub">Барои фармоиш, пайгирии расонидан ва дидани таърихи харид ворид шавед</div>
+      <button class="sb-guest-btn" onclick="closeSB();location.href='login.html'">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Ворид шавед
+      </button>
+      <button class="sb-guest-btn outline" onclick="closeSB();location.href='login.html#register'">
+        Ҳисоб созед
+      </button>`;
+    sbBody.prepend(div);
+  }
+}
+
+// Проверка авторизации — показывает красивый экран вместо редиректа
+function requireAuth(page) {
+  const PROTECTED = ['cart', 'orders', 'status', 'profile'];
+  if (!PROTECTED.includes(page)) return false; // не требует — пропускаем
+  if (CU) return false; // авторизован — пропускаем
+  // Показываем auth wall внутри страницы
+  showAuthWall(page);
+  return true;
+}
+
+const AUTH_WALL_INFO = {
+  cart:    { ico: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>`, title: 'Сабад дастрас нест', sub: 'Барои илова кардани маҳсулот ба сабад ва расмикунонии фармоиш ворид шавед' },
+  orders:  { ico: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>`, title: 'Таърихи фармоишҳо', sub: 'Барои дидани фармоишҳои худ ва пайгирии расонидан ворид шавед' },
+  status:  { ico: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`, title: 'Ҳолати фармоиш', sub: 'Барои дидани вазъи фармоиш ва пайгирии курьер ворид шавед' },
+  profile: { ico: `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`, title: 'Профил', sub: 'Барои идоракунии профил, суроғ ва танзимот ворид шавед' },
+};
+
+function showAuthWall(page) {
+  // Переключаем страницу и вставляем стену
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.ni,.mn-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page)?.classList.add('active');
+  document.querySelectorAll(`.ni[data-page="${page}"],.mn-item[data-page="${page}"]`).forEach(n => n.classList.add('active'));
+
+  const info = AUTH_WALL_INFO[page] || AUTH_WALL_INFO.profile;
+  const pageEl = document.getElementById('page-' + page);
+  if (!pageEl) return;
+
+  // Убираем старый wall если был
+  pageEl.querySelector('.auth-wall')?.remove();
+
+  const wall = document.createElement('div');
+  wall.className = 'auth-wall';
+  wall.innerHTML = `
+    <div class="auth-wall-ico">${info.ico}</div>
+    <div class="auth-wall-title">${info.title}</div>
+    <div class="auth-wall-sub">${info.sub}</div>
+    <a href="login.html" class="auth-wall-btn">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+      Ворид шавед
+    </a>
+    <div class="auth-wall-hint">Ҳисоб надоред? <a href="login.html#register">Бесарватона созед</a></div>`;
+  pageEl.appendChild(wall);
+}
+
 // ─── Навигация ────────────────────────────────────────────────
 window.goPage = function (page) {
+  // Проверяем авторизацию для защищённых страниц
+  if (requireAuth(page)) return;
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.ni,.mn-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page)?.classList.add('active');
@@ -545,7 +643,27 @@ window.pcMinus = async function (pid) {
   renderCart(); renderHomeProds(); renderCatalog(); renderStoreProds(); updateBadges();
 };
 
-function renderHomeProds() {
+function showCartAuthPrompt() {
+  // Используем уже существующий toast-механизм, но с кнопкой
+  const existing = document.getElementById('cart-auth-toast');
+  if (existing) existing.remove();
+
+  const el = document.createElement('div');
+  el.id = 'cart-auth-toast';
+  el.style.cssText = `position:fixed;bottom:calc(var(--nb) + var(--safe-b) + 16px);left:50%;transform:translateX(-50%);z-index:800;background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:14px 18px;box-shadow:0 8px 32px rgba(0,0,0,.15);display:flex;align-items:center;gap:14px;min-width:290px;max-width:360px;animation:tpIn .25s var(--spring) both`;
+  el.innerHTML = `
+    <div style="width:36px;height:36px;border-radius:10px;background:var(--accd);display:flex;align-items:center;justify-content:center;color:var(--acc);flex-shrink:0">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:.72rem;font-weight:700;color:var(--tx);margin-bottom:2px">Барои фармоиш ворид шавед</div>
+      <div style="font-size:.62rem;color:var(--tx3)">Сабад барои аккаунт дастрас аст</div>
+    </div>
+    <a href="login.html" style="background:var(--accg);color:#fff;border:none;border-radius:9px;padding:7px 13px;font-size:.68rem;font-weight:800;cursor:pointer;text-decoration:none;white-space:nowrap;font-family:var(--fd)">Ворид →</a>`;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.animation = 'tpOut .2s ease both'; setTimeout(() => el.remove(), 200); }, 3500);
+}
+
   const el   = document.getElementById('home-prods');
   if (!el) return;
   const list = prods.filter(p => p.available !== false).slice(0, 8);
@@ -677,6 +795,11 @@ async function loadCart() {
 }
 
 window.addToCart = async function (pid) {
+  if (!CU) {
+    // Гость — предлагаем войти
+    showCartAuthPrompt();
+    return;
+  }
   const p = prods.find(x => x.id === pid);
   if (!p || !CU) return;
   const cr = doc(db, 'users', CU.uid, 'cart', p.id);
