@@ -164,41 +164,31 @@ window.goLogin = function () {
 
 // ─── Гостевой баннер: скрываем обычный topbar, показываем гостевой ──
 function renderGuestBanner() {
-  // Переключаем топбары
   const topbar = document.getElementById('topbar');
   const guestTopbar = document.getElementById('guest-topbar');
   if (topbar) topbar.style.display = 'none';
   if (guestTopbar) guestTopbar.classList.add('visible');
 
-  // Сайдбар и мобильная навигация: прячем корзину/заказы, показываем Вход
-  document.querySelectorAll('.guest-hidden').forEach(el => el.style.display = 'none');
-  document.querySelectorAll('.guest-only').forEach(el => el.style.display = 'flex');
+  // Сайдбар: скрываем корзину/заказы/статус (только в сайдбаре через guest-hidden)
+  document.querySelectorAll('.sb-nav .guest-hidden').forEach(el => el.style.display = 'none');
 
   // Адрес в сайдбаре — блокируем клик
   const addrRow = document.getElementById('sb-addr-row');
-  if (addrRow) {
-    addrRow.style.pointerEvents = 'none';
-    addrRow.style.opacity = '.45';
-  }
+  if (addrRow) { addrRow.style.pointerEvents = 'none'; addrRow.style.opacity = '.45'; }
 }
 
 function removeGuestBanner() {
-  // Возвращаем обычный топбар
   const topbar = document.getElementById('topbar');
   const guestTopbar = document.getElementById('guest-topbar');
   if (topbar) topbar.style.display = '';
   if (guestTopbar) guestTopbar.classList.remove('visible');
 
-  // Восстанавливаем навигацию
-  document.querySelectorAll('.guest-hidden').forEach(el => el.style.display = '');
-  document.querySelectorAll('.guest-only').forEach(el => el.style.display = 'none');
+  // Восстанавливаем сайдбар
+  document.querySelectorAll('.sb-nav .guest-hidden').forEach(el => el.style.display = '');
 
   // Адрес — разблокируем
   const addrRow = document.getElementById('sb-addr-row');
-  if (addrRow) {
-    addrRow.style.pointerEvents = '';
-    addrRow.style.opacity = '';
-  }
+  if (addrRow) { addrRow.style.pointerEvents = ''; addrRow.style.opacity = ''; }
 }
 
 // ─── Гостевой профиль ────────────────────────────────────────
