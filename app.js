@@ -148,9 +148,9 @@ async function loadUD() {
     const s = await getDoc(doc(db, 'users', CU.uid));
     UD = s.exists()
       ? s.data()
-      : { displayName: CU.displayName || '', email: CU.email, phone: '', address: '', role: 'client', avatarUrl: '' };
+      : { displayName: CU.displayName || '', email: CU.email, phone: '', address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
   } catch {
-    UD = { displayName: '', email: CU.email, phone: '', address: '', role: 'client', avatarUrl: '' };
+    UD = { displayName: '', email: CU.email, phone: '', address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
   }
 }
 
@@ -760,9 +760,7 @@ function updateBadges() {
 
 function setAddr() {
   if (UD?.address) {
-    const ca = document.getElementById('cart-addr');
-    if (ca) ca.value = UD.address;
-    updateAddrCard('cart', UD.address, UD.lat, UD.lng);
+    updateAddrCard(UD.address, UD.lat || null, UD.lng || null);
   }
 }
 
@@ -950,15 +948,25 @@ window.confirmAddr = function () {
   const extra = [floor ? 'ош. ' + floor : '', apt ? 'хв. ' + apt : '', note].filter(Boolean).join(', ');
   if (extra) full += ', ' + extra;
 
+  // Обновляем UI карточки и hidden inputs
   updateAddrCard(full, _addrPicked.lat, _addrPicked.lng);
 
+  // Сохраняем в Firestore — коллекция users/{uid}, поля address + lat + lng
   if (CU) {
     setDoc(doc(db, 'users', CU.uid), {
-      address: full, lat: _addrPicked.lat, lng: _addrPicked.lng,
+      address:   full,
+      lat:       _addrPicked.lat,
+      lng:       _addrPicked.lng,
       updatedAt: serverTimestamp(),
     }, { merge: true }).then(() => {
+      // Обновляем локальный UD
       UD = { ...UD, address: full, lat: _addrPicked.lat, lng: _addrPicked.lng };
+      // Синхронизируем профиль и сайдбар
       renderSB();
+      renderProfile();
+      // Обновляем поле адреса в профиле
+      const pfa = document.getElementById('pf-addr');
+      if (pfa) pfa.value = full;
     });
   }
 
@@ -967,6 +975,7 @@ window.confirmAddr = function () {
 };
 
 function updateAddrCard(address, lat, lng) {
+  // Hidden inputs для оформления заказа
   const ca = document.getElementById('cart-addr');
   const cl = document.getElementById('cart-lat');
   const cn = document.getElementById('cart-lng');
@@ -974,6 +983,7 @@ function updateAddrCard(address, lat, lng) {
   if (cl) cl.value = lat || '';
   if (cn) cn.value = lng || '';
 
+  // Карточка-кнопка в корзине
   const display = document.getElementById('cart-addr-display');
   const coords  = document.getElementById('cart-addr-coords');
   if (display) { display.textContent = address; display.classList.remove('empty'); }
@@ -982,8 +992,18 @@ function updateAddrCard(address, lat, lng) {
     coords.style.display = 'block';
   }
 
+  // Сайдбар
   const adv = document.getElementById('sb-addr-val');
   if (adv) { adv.textContent = address; adv.classList.remove('empty'); }
+
+  // Поле адреса в профиле
+  const pfa = document.getElementById('pf-addr');
+  if (pfa) pfa.value = address;
+  const pfc = document.getElementById('pf-addr-coords');
+  if (pfc && lat && lng) {
+    pfc.textContent = `📍 ${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
+    pfc.style.display = 'block';
+  }
 }
 
 function escHtml(s) {
@@ -1386,6 +1406,16 @@ function renderProfile() {
   const pfe = document.getElementById('pf-email'); if (pfe) pfe.value = CU.email || '';
   const pfp = document.getElementById('pf-phone'); if (pfp) pfp.value = UD?.phone || '';
   const pfa = document.getElementById('pf-addr');  if (pfa) pfa.value = UD?.address || '';
+  // Показываем координаты если есть
+  const pfc = document.getElementById('pf-addr-coords');
+  if (pfc) {
+    if (UD?.lat && UD?.lng) {
+      pfc.textContent = `📍 ${parseFloat(UD.lat).toFixed(5)}, ${parseFloat(UD.lng).toFixed(5)}`;
+      pfc.style.display = 'block';
+    } else {
+      pfc.style.display = 'none';
+    }
+  }
 }
 
 window.saveProfile = async function () {
@@ -1393,8 +1423,25 @@ window.saveProfile = async function () {
   const phone = document.getElementById('pf-phone').value.trim();
   const addr  = document.getElementById('pf-addr').value.trim();
   try {
-    await setDoc(doc(db, 'users', CU.uid), { displayName: name, phone, address: addr, updatedAt: serverTimestamp() }, { merge: true });
-    UD = { ...UD, displayName: name, phone, address: addr };
+    // Если адрес вручную изменён — сбрасываем координаты (они уже не актуальны)
+    const addrChanged = addr !== UD?.address;
+    const saveData = {
+      displayName: name,
+      phone,
+      address: addr,
+      updatedAt: serverTimestamp(),
+    };
+    // Сохраняем координаты только если адрес не менялся вручную
+    if (!addrChanged && UD?.lat && UD?.lng) {
+      saveData.lat = UD.lat;
+      saveData.lng = UD.lng;
+    } else if (addrChanged) {
+      // При ручном вводе адреса пробуем геокодировать через Nominatim
+      saveData.lat = null;
+      saveData.lng = null;
+    }
+    await setDoc(doc(db, 'users', CU.uid), saveData, { merge: true });
+    UD = { ...UD, ...saveData };
     renderSB(); renderProfile(); setAddr();
     toast('Профил сақл шуд', 'ok');
   } catch { toast('Хато', 'err'); }

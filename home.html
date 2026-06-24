@@ -746,7 +746,17 @@ select.addr-inp{cursor:pointer}
               <div class="ff"><label class="fl">Телефон</label><input class="fi" type="tel" id="pf-phone" placeholder="+992 900 000-000"/></div>
             </div>
             <div class="ff"><label class="fl">Email</label><input class="fi" type="email" id="pf-email" readonly/></div>
-            <div class="ff"><label class="fl">Суроғаи пешфарзи расонидан</label><input class="fi" type="text" id="pf-addr" placeholder="кӯчаи Рӯдакӣ, д. 1, хв. 1"/></div>
+            <div class="ff">
+              <label class="fl">Суроғаи пешфарзи расонидан</label>
+              <div style="display:flex;gap:8px;align-items:center">
+                <input class="fi" type="text" id="pf-addr" placeholder="кӯчаи Рӯдакӣ, д. 1, хв. 1" style="flex:1"/>
+                <button onclick="openAddrModal('profile')" title="Дар харита нишон диҳед" style="height:38px;padding:0 12px;background:var(--accd);border:1.5px solid var(--accg);border-radius:9px;color:var(--acc);cursor:pointer;display:flex;align-items:center;gap:5px;font-size:.68rem;font-weight:700;white-space:nowrap;font-family:var(--fs);flex-shrink:0">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  GPS
+                </button>
+              </div>
+              <div id="pf-addr-coords" style="font-size:.58rem;color:var(--acc);margin-top:4px;display:none"></div>
+            </div>
             <button class="btn-primary" onclick="saveProfile()">Тағйиротро сақл кунед</button>
           </div>
           <div class="pform">
