@@ -1,206 +1,461 @@
 // ============================================================
-//  app.js — Galelium Courier · Логика курьерского приложения
-//  Забони тоҷикӣ · 3-қадамаи расонидан
+//  app.js — Логика клиентского приложения Galelium Delivery
+//  Используется в: home.html
 // ============================================================
 
-import { auth, db, storage, COL, EPD, VEHICLE_TYPES } from './firebase.js';
+import { auth, db, storage, ORDER_STATUS } from './firebase.js';
 
 import {
-  onAuthStateChanged, signOut,
+  onAuthStateChanged,
+  signOut,
 } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js';
 
 import {
-  doc, getDoc, setDoc, updateDoc,
-  getDocs, collection, query, where,
-  orderBy, onSnapshot, serverTimestamp, limit,
+  doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
+  collection, getDocs, query, where, orderBy,
+  onSnapshot, serverTimestamp, increment, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js';
 
 import {
   ref as sRef, uploadBytes, getDownloadURL,
 } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-storage.js';
 
-// ─── Ҳолати барнома ──────────────────────────────────────────
-let CU              = null;
-let UD              = null;
-let CD              = null;
-let newOrders       = [];
-let activeOrder     = null;
-let historyOrders   = [];
-let unsubNew        = null;
-let unsubActive     = null;
-let soundEnabled    = true;
-let todayDeliveries = 0;
-let todayEarnings   = 0;
-let checkedItems    = new Set(); // Отмеченные товары при сборке
+// ─── Состояние приложения ────────────────────────────────────
+let CU        = null;   // текущий пользователь Firebase Auth
+let UD        = null;   // документ пользователя из Firestore
+let GUEST     = false;  // режим гостя
+let cart      = [];
+let prods     = [];
+let cats      = [];
+let orders    = [];
+let stores    = [];     // каталоги магазинов
+let catFilter = 'all';
+let searchQ   = '';
+let activeOid = null;
+let unsubLive = null;
+let currentOTab   = 'all';
+let homeSearchQ   = '';
+let activeStore   = null;  // текущий открытый магазин
+let storeCatFilter = 'all'; // фильтр категорий внутри магазина
 
-// ─── Тарҷумаи ҳолатҳо ───────────────────────────────────────
+const DFEE = 7; // стоимость доставки
+
+// ─── Лейблы и цвета статусов (на таджикском) ─────────────────
 const SL = {
-  pending:         'Интизор',
-  confirmed:       'Тасдиқ шуд',
-  preparing:       'Омода мешавад',
-  courier_heading: 'Курьер дар роҳ',
-  courier_arrived: 'Расид ба дӯкон',
-  collecting:      'Ҷамъоварӣ',
-  delivering:      'Дар роҳ',
-  client_arrived:  'Расид ба муштарӣ',
-  delivered:       'Расонида шуд',
-  cancelled:       'Бекор шуд',
+  pending:    'Интизор',
+  confirmed:  'Тасдиқ шуд',
+  preparing:  'Омода мешавад',
+  delivering: 'Дар роҳ',
+  delivered:  'Расонида шуд',
+  cancelled:  'Бекор шуд',
 };
 
-// ─── Қадамҳои визуалии пайгирӣ ──────────────────────────────
-const TRACK_STEPS = [
-  { key: 'courier_heading', icon: '🏪', label: 'Ба дӯкон' },
-  { key: 'collecting',      icon: '🛒', label: 'Ҷамъоварӣ' },
-  { key: 'delivering',      icon: '🛵', label: 'Расонидан' },
-  { key: 'delivered',       icon: '✅', label: 'Расонида шуд' },
-];
+const SC = {
+  pending:    'var(--amber)',
+  confirmed:  'var(--blue)',
+  preparing:  'var(--purple)',
+  delivering: 'var(--acc)',
+  delivered:  'var(--acc)',
+  cancelled:  'var(--red)',
+};
 
-// Маппинг статусов к шагам трекера
-function statusToStep(status) {
-  if (['pending', 'confirmed', 'preparing'].includes(status))  return -1;
-  if (['courier_heading', 'courier_arrived'].includes(status)) return 0;
-  if (['collecting'].includes(status))                         return 1;
-  if (['delivering', 'client_arrived'].includes(status))       return 2;
-  if (['delivered'].includes(status))                          return 3;
-  return -1;
+const STEPS = ['pending', 'confirmed', 'preparing', 'delivering', 'delivered'];
+
+// ─── SVG-иконки категорий ─────────────────────────────────────
+const CAT_SVG = {
+  vegetables: { color: '#16a34a', bg: 'rgba(22,163,74,.1)', svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M16 6 Q10 10 10 20 Q10 26 16 28 Q22 26 22 20 Q22 10 16 6Z" fill="#16a34a" opacity=".85"/><path d="M16 6 Q14 14 15 22" stroke="#15803d" stroke-width="1.5" fill="none"/><path d="M16 6 Q18 14 17 22" stroke="#15803d" stroke-width="1.5" fill="none"/><path d="M10 14 Q13 12 16 14 Q19 12 22 14" stroke="#fff" stroke-width="1" fill="none" opacity=".5"/></svg>` },
+  fruits:     { color: '#ef4444', bg: 'rgba(239,68,68,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="18" r="10" fill="#ef4444" opacity=".85"/><path d="M16 8 Q18 4 22 5" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M16 8 Q16 4 20 3" stroke="#16a34a" stroke-width="1.5" fill="none" stroke-linecap="round"/><circle cx="12" cy="16" r="2" fill="#fff" opacity=".3"/></svg>` },
+  drinks:     { color: '#06b6d4', bg: 'rgba(6,182,212,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M10 8 L12 26 L20 26 L22 8 Z" fill="#06b6d4" opacity=".85"/><rect x="9" y="6" width="14" height="3" rx="1.5" fill="#0891b2"/><path d="M12 15 Q16 17 20 15" stroke="#fff" stroke-width="1" fill="none" opacity=".5"/><circle cx="22" cy="10" r="1.5" fill="#22d3ee"/></svg>` },
+  chocolate:  { color: '#92400e', bg: 'rgba(146,64,14,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="5" y="9" width="22" height="16" rx="3" fill="#92400e" opacity=".85"/><line x1="12" y1="9" x2="12" y2="25" stroke="#7c2d12" stroke-width="1"/><line x1="19" y1="9" x2="19" y2="25" stroke="#7c2d12" stroke-width="1"/><line x1="5" y1="17" x2="27" y2="17" stroke="#7c2d12" stroke-width="1"/><path d="M13 5 Q16 3 19 5" stroke="#92400e" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>` },
+  bread:      { color: '#d97706', bg: 'rgba(217,119,6,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M6 14 Q6 8 16 8 Q26 8 26 14 L26 24 Q26 26 24 26 L8 26 Q6 26 6 24 Z" fill="#d97706" opacity=".85"/><path d="M8 14 Q16 11 24 14" stroke="#b45309" stroke-width="1.5" fill="none"/><ellipse cx="16" cy="14" rx="10" ry="5" fill="#f59e0b" opacity=".4"/></svg>` },
+  dairy:      { color: '#0ea5e9', bg: 'rgba(14,165,233,.1)', svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="9" y="8" width="14" height="18" rx="3" fill="#0ea5e9" opacity=".85"/><path d="M9 12 L7 8 L25 8 L23 12" stroke="#0284c7" stroke-width="1" fill="none"/><circle cx="14" cy="19" r="2" fill="#fff" opacity=".5"/><circle cx="19" cy="17" r="1.5" fill="#fff" opacity=".4"/></svg>` },
+  snacks:     { color: '#f97316', bg: 'rgba(249,115,22,.1)', svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><rect x="5" y="12" width="22" height="12" rx="3" fill="#f97316" opacity=".85"/><rect x="8" y="10" width="16" height="4" rx="2" fill="#ea580c"/><path d="M9 16 Q16 14 23 16" stroke="#fff" stroke-width="1" fill="none" opacity=".4"/><path d="M9 20 Q16 18 23 20" stroke="#fff" stroke-width="1" fill="none" opacity=".4"/></svg>` },
+  meat:       { color: '#dc2626', bg: 'rgba(220,38,38,.1)',  svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M8 22 Q6 18 10 14 Q14 10 18 12 L22 8 Q24 6 26 8 Q28 10 26 12 L22 16 Q24 20 20 22 Q16 24 12 22 Q10 24 8 22Z" fill="#dc2626" opacity=".85"/><circle cx="22" cy="10" r="3" fill="#fca5a5" opacity=".6"/></svg>` },
+  default:    { color: '#64748b', bg: 'rgba(100,116,139,.1)',svg: `<svg width="26" height="26" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="10" fill="#64748b" opacity=".15"/><circle cx="16" cy="16" r="6" fill="#64748b" opacity=".5"/></svg>` },
+};
+
+// ─── Вспомогательные функции ──────────────────────────────────
+
+function catIconKey(id, name) {
+  const n = (name || id || '').toLowerCase();
+  if (/сабзав|овощ|vegeta/i.test(n)) return 'vegetables';
+  if (/мева|фрукт|fruit/i.test(n))   return 'fruits';
+  if (/нӯшок|напит|drink/i.test(n))  return 'drinks';
+  if (/шокол|choco/i.test(n))        return 'chocolate';
+  if (/нон|хлеб|bread/i.test(n))     return 'bread';
+  if (/лаб|молок|dairy|шир/i.test(n))return 'dairy';
+  if (/гӯшт|мясо|meat/i.test(n))     return 'meat';
+  if (/снек|перек|snack/i.test(n))   return 'snacks';
+  return id in CAT_SVG ? id : 'default';
 }
 
-// ─── Toast ───────────────────────────────────────────────────
+function catIcon(id, name) {
+  return CAT_SVG[catIconKey(id, name)] || CAT_SVG.default;
+}
+
+function catName(id) {
+  return (cats.find(c => c.id === id) || {}).name || id || '';
+}
+
+function getCartQty(pid) {
+  return (cart.find(c => c.productId === pid) || {}).quantity || 0;
+}
+
+function fmtDate(ts) {
+  if (!ts?.toDate) return '—';
+  const d = ts.toDate();
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' })
+    + ', '
+    + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+}
+
+let _orderSeq = Date.now() % 100000;
+function nextOrderNum() {
+  // 8-значный рандомный номер: от 10000000 до 99999999
+  return Math.floor(10000000 + Math.random() * 90000000).toString();
+}
+
+// ─── Toast-уведомления ────────────────────────────────────────
 window.toast = function (msg, type = '') {
   const w  = document.getElementById('toast-wrap');
   const el = document.createElement('div');
   el.className = 'toast ' + type;
   el.innerHTML = `<div class="tdot"></div><span>${msg}</span>`;
   w.appendChild(el);
-  setTimeout(() => el.remove(), 3500);
+  setTimeout(() => el.remove(), 3400);
 };
 
-// ─── Соат ────────────────────────────────────────────────────
-function tick() {
-  const el = document.getElementById('tb-time');
-  if (el) el.textContent = new Date().toLocaleTimeString('tg-TJ', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-setInterval(tick, 1000);
-tick();
-
-// ─── Auth ────────────────────────────────────────────────────
+// ─── Auth: инициализация приложения ──────────────────────────
 onAuthStateChanged(auth, async u => {
-  if (!u) { location.href = 'login.html'; return; }
-  CU = u;
-  const s = await getDoc(doc(db, COL.USERS, CU.uid));
-  if (!s.exists() || s.data().role !== 'courier') {
-    await signOut(auth);
-    location.href = 'login.html';
+  if (!u) {
+    // Запускаем гостевой режим вместо редиректа
+    GUEST = true;
+    CU = null;
+    UD = null;
+    await Promise.all([loadProds(), loadCats(), loadStores()]);
+    renderSB();
+    renderGuestBanner();
+    renderGuestProfile();
+    renderCart();
     return;
   }
-  UD = s.data();
-  const cs = await getDoc(doc(db, COL.COURIERS, CU.uid));
-  CD = cs.exists()
-    ? cs.data()
-    : { totalDeliveries: 0, earnings: 0, rating: 0, vehicle: 'foot', isOnline: false };
+  GUEST = false;
+  CU = u;
+  await loadUD();
+  await Promise.all([loadCart(), loadProds(), loadCats(), loadOrders(), loadStores()]);
   renderSB();
   renderProfile();
-  calcStats();
-  startListeners();
+  setAddr();
+  renderCart();
+  removeGuestBanner();
 });
 
-// ─── Баромадан ───────────────────────────────────────────────
+// ─── Выход из аккаунта ────────────────────────────────────────
 window.doLogout = async function () {
-  if (unsubNew)    { unsubNew();    unsubNew    = null; }
-  if (unsubActive) { unsubActive(); unsubActive = null; }
-  try { await setDoc(doc(db, COL.COURIERS, CU.uid), { isOnline: false, updatedAt: serverTimestamp() }, { merge: true }); } catch {}
+  if (unsubLive) unsubLive();
   await signOut(auth);
+  // После выхода — не редиректим, переходим в гостевой режим
+  // onAuthStateChanged сработает автоматически
+};
+
+// ─── Кнопка входа для гостя ──────────────────────────────────
+window.goLogin = function () {
   location.href = 'login.html';
 };
 
-// ─── Сайдбар ─────────────────────────────────────────────────
-function renderSB() {
-  const name = UD?.displayName || CU.email || 'Курьер';
-  const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
-  const uname = document.getElementById('sb-uname');
-  if (uname) uname.textContent = name;
+// ─── Гостевой баннер: скрываем обычный topbar, показываем гостевой ──
+function renderGuestBanner() {
+  const topbar = document.getElementById('topbar');
+  const guestTopbar = document.getElementById('guest-topbar');
+  if (topbar) topbar.style.display = 'none';
+  if (guestTopbar) guestTopbar.classList.add('visible');
+
+  // Сайдбар: скрываем корзину/заказы/статус (только в сайдбаре через guest-hidden)
+  document.querySelectorAll('.sb-nav .guest-hidden').forEach(el => el.style.display = 'none');
+
+  // Адрес в сайдбаре — блокируем клик
+  const addrRow = document.getElementById('sb-addr-row');
+  if (addrRow) { addrRow.style.pointerEvents = 'none'; addrRow.style.opacity = '.45'; }
+}
+
+function removeGuestBanner() {
+  const topbar = document.getElementById('topbar');
+  const guestTopbar = document.getElementById('guest-topbar');
+  if (topbar) topbar.style.display = '';
+  if (guestTopbar) guestTopbar.classList.remove('visible');
+
+  // Восстанавливаем сайдбар
+  document.querySelectorAll('.sb-nav .guest-hidden').forEach(el => el.style.display = '');
+
+  // Адрес — разблокируем
+  const addrRow = document.getElementById('sb-addr-row');
+  if (addrRow) { addrRow.style.pointerEvents = ''; addrRow.style.opacity = ''; }
+}
+
+// ─── Гостевой профиль ────────────────────────────────────────
+function renderGuestProfile() {
   const av = document.getElementById('sb-av');
-  if (av) av.innerHTML = UD?.avatarUrl ? `<img src="${UD.avatarUrl}" alt="">` : init;
-  updateOnlineUI(CD?.isOnline || false);
-  updateEarnUI();
-}
+  if (av) av.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+  const nm = document.getElementById('sb-uname');
+  if (nm) nm.textContent = 'Меҳмон';
+  const adv = document.getElementById('sb-addr-val');
+  if (adv) { adv.textContent = 'Барои фармоиш ворид шавед'; adv.classList.add('empty'); }
 
-// ─── Онлайн / Офлайн ─────────────────────────────────────────
-window.toggleOnline = async function (v) {
-  try {
-    await setDoc(doc(db, COL.COURIERS, CU.uid), { isOnline: v, updatedAt: serverTimestamp() }, { merge: true });
-    CD = { ...CD, isOnline: v };
-    updateOnlineUI(v);
-    toast(v ? 'Шумо онлайн ед 🟢' : 'Шумо офлайн ед', v ? 'ok' : '');
-  } catch { toast('Хато', 'err'); }
-};
-
-function updateOnlineUI(on) {
-  const tog     = document.getElementById('online-tog');     if (tog)     tog.checked = on;
-  const val     = document.getElementById('sb-online-val');  if (val)     { val.textContent = on ? 'Онлайн' : 'Офлайн'; val.className = 'sb-online-val' + (on ? ' on' : ''); }
-  const card    = document.getElementById('sb-online-card'); if (card)    card.className = 'sb-online' + (on ? ' is-online' : '');
-  const chip    = document.getElementById('tb-chip');        if (chip)    chip.className = 'tb-chip' + (on ? ' online' : ' offline');
-  const chipTxt = document.getElementById('tb-chip-txt');    if (chipTxt) chipTxt.textContent = on ? 'Онлайн' : 'Офлайн';
-}
-
-function updateEarnUI() {
-  const se = document.getElementById('sb-earn-val'); if (se) se.textContent = todayEarnings + ' см';
-  const de = document.getElementById('d-earn');      if (de) de.textContent = todayEarnings + ' см';
-}
-
-// ─── Садо ────────────────────────────────────────────────────
-window.toggleSound = function () {
-  soundEnabled = !soundEnabled;
-  const b = document.getElementById('sound-btn');
-  if (b) {
-    b.className = 'tb-sound' + (soundEnabled ? ' on' : '');
-    b.innerHTML = soundEnabled
-      ? `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14M15.54 8.46a5 5 0 010 7.07"/></svg>`
-      : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
+  // Профиль страница — показываем заглушку
+  const profPage = document.getElementById('page-profile');
+  if (profPage) {
+    profPage.innerHTML = `
+      <div style="max-width:400px;margin:60px auto;text-align:center;padding:0 16px">
+        <div style="width:80px;height:80px;border-radius:50%;background:var(--accd);border:3px solid var(--accg);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;color:var(--acc)">👤</div>
+        <div style="font-family:var(--fd);font-weight:900;font-size:1.3rem;color:var(--tx);margin-bottom:8px">Гостевой режим</div>
+        <div style="font-size:.8rem;color:var(--tx3);line-height:1.6;margin-bottom:28px">Барои дидани профил, таърихи фармоишҳо ва захира кардани суроғ, лутфан ворид шавед ё ҳисоб кушоед.</div>
+        <button onclick="goLogin()" style="background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:12px;color:#fff;font-size:.78rem;font-family:var(--fd);font-weight:800;padding:13px 32px;cursor:pointer;box-shadow:0 4px 16px rgba(26,158,74,.3);width:100%;max-width:260px;transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+          Ворид шавед / Ҳисоб кушоед
+        </button>
+        <div style="margin-top:16px;font-size:.68rem;color:var(--tx3)">Ё идома диҳед ба тарзи гостевӣ — маҳсулотро бинед, каталогро баррасӣ кунед</div>
+      </div>`;
   }
-  toast(soundEnabled ? 'Садо фаъол шуд' : 'Бе садо', 'ok');
-};
 
-function playBeep() {
-  if (!soundEnabled) return;
+  // Заказы страница — заглушка
+  const ordPage = document.getElementById('page-orders');
+  if (ordPage) {
+    ordPage.innerHTML = `
+      <div style="text-align:center;padding:60px 20px">
+        <div style="font-size:3rem;margin-bottom:14px">📋</div>
+        <div style="font-family:var(--fd);font-weight:900;font-size:1.1rem;color:var(--tx);margin-bottom:8px">Фармоишҳо дастрас нестанд</div>
+        <div style="font-size:.76rem;color:var(--tx3);margin-bottom:24px">Барои дидани таърихи фармоишҳо ворид шавед</div>
+        <button onclick="goLogin()" style="background:var(--acc);border:none;border-radius:10px;color:#fff;font-size:.74rem;font-family:var(--fs);font-weight:700;padding:10px 28px;cursor:pointer;box-shadow:0 3px 12px rgba(26,158,74,.3)">Ворид шавед</button>
+      </div>`;
+  }
+
+  // Статус страница — заглушка
+  const statusPage = document.getElementById('page-status');
+  if (statusPage) {
+    const sc = statusPage.querySelector('#status-content');
+    if (sc) sc.innerHTML = `
+      <div style="text-align:center;padding:40px 20px">
+        <div style="font-size:2.5rem;margin-bottom:12px">📍</div>
+        <div style="font-family:var(--fd);font-weight:900;font-size:1rem;color:var(--tx);margin-bottom:6px">Фармоишҳои фаъол нест</div>
+        <div style="font-size:.72rem;color:var(--tx3);margin-bottom:20px">Барои пайгирии фармоиш ворид шавед</div>
+        <button onclick="goLogin()" style="background:var(--acc);border:none;border-radius:10px;color:#fff;font-size:.72rem;font-family:var(--fs);font-weight:700;padding:9px 24px;cursor:pointer">Ворид шавед</button>
+      </div>`;
+  }
+}
+
+// ─── Проверка гостя перед действиями ────────────────────────
+function requireAuth(msg) {
+  if (!GUEST) return true;
+  toast(msg || 'Барои ин амал ворид шавед', 'info');
+  // Показываем мини-подсказку с кнопкой входа
+  setTimeout(() => {
+    const el = document.querySelector('.toast:last-child');
+    if (el) {
+      el.style.cursor = 'pointer';
+      el.onclick = () => goLogin();
+    }
+  }, 50);
+  return false;
+}
+
+// ─── Загрузка данных пользователя ────────────────────────────
+async function loadUD() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 150, 300].forEach((d) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 880; o.type = 'sine';
-      g.gain.setValueAtTime(.18, ctx.currentTime + d / 1000);
-      g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + d / 1000 + .22);
-      o.start(ctx.currentTime + d / 1000);
-      o.stop(ctx.currentTime + d / 1000 + .22);
-    });
-  } catch {}
+    const s = await getDoc(doc(db, 'users', CU.uid));
+    UD = s.exists()
+      ? s.data()
+      : { displayName: CU.displayName || '', email: CU.email, phone: '', address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
+  } catch {
+    UD = { displayName: '', email: CU.email, phone: '', address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
+  }
+}
+
+// ─── Рендер сайдбара ─────────────────────────────────────────
+function renderSB() {
+  if (GUEST) {
+    const nm = document.getElementById('sb-uname');
+    if (nm) nm.textContent = 'Меҳмон';
+    const av = document.getElementById('sb-av');
+    if (av) av.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+    const adv = document.getElementById('sb-addr-val');
+    if (adv) { adv.textContent = 'Барои фармоиш ворид шавед'; adv.classList.add('empty'); }
+    // Заменяем кнопку выхода на кнопку входа в сайдбаре
+    const logoutBtn = document.querySelector('.sb-logout');
+    if (logoutBtn) {
+      logoutBtn.title = 'Ворид шавед';
+      logoutBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>`;
+      logoutBtn.onclick = (e) => { e.stopPropagation(); goLogin(); };
+      logoutBtn.style.color = 'var(--acc)';
+    }
+    const role = document.querySelector('.sb-urole');
+    if (role) role.textContent = 'Гостевой режим';
+    const userEl = document.querySelector('.sb-user');
+    if (userEl) userEl.onclick = () => goLogin();
+    return;
+  }
+  const name = UD?.displayName || CU.email || 'Муштарӣ';
+  const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  document.getElementById('sb-uname').textContent = name;
+  const av = document.getElementById('sb-av');
+  av.innerHTML = UD?.avatarUrl ? `<img src="${UD.avatarUrl}" alt="">` : init;
+  const adv = document.getElementById('sb-addr-val');
+  if (UD?.address) {
+    adv.textContent = UD.address;
+    adv.classList.remove('empty');
+  } else {
+    adv.textContent = 'Суроғ нишон диҳед →';
+    adv.classList.add('empty');
+  }
 }
 
 // ─── Навигация ────────────────────────────────────────────────
 window.goPage = function (page) {
+  // Гость может смотреть только публичные страницы
+  if (GUEST && (page === 'orders' || page === 'status' || page === 'cart')) {
+    if (page === 'cart') {
+      toast('Барои истифода аз сабад ворид шавед', 'info');
+    } else {
+      toast('Барои дидани фармоишҳо ворид шавед', 'info');
+    }
+    return;
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.ni,.mn-item').forEach(n => n.classList.remove('active'));
   document.getElementById('page-' + page)?.classList.add('active');
-  document.querySelectorAll(`.ni[data-page="${page}"],.mn-item[data-page="${page}"]`).forEach(n => n.classList.add('active'));
-  const titles = {
-    dashboard:    'Дашборд',
-    'new-orders': 'Фармоишҳои нав',
-    active:       'Фармоиши фаъол',
-    history:      'Таърих',
-    profile:      'Профил',
-  };
+  document.querySelectorAll(`.ni[data-page="${page}"],.mn-item[data-page="${page}"]`)
+    .forEach(n => n.classList.add('active'));
   const tb = document.getElementById('tb-title');
-  if (tb) tb.textContent = titles[page] || 'Galelium Courier';
-  if (page === 'history')   loadHistory();
-  if (page === 'active')    renderActive();
-  if (page === 'dashboard') { renderDashNew(); renderDashActive(); }
+  if (page === 'home') tb.innerHTML = 'Galelium <em>Delivery</em>';
+  else if (page === 'store') tb.textContent = activeStore?.name || 'Каталог';
+  else tb.textContent = {
+    catalog: 'Каталог',
+    cart:    'Сабад',
+    orders:  'Фармоишҳоям',
+    status:  'Ҳолати фармоиш',
+    profile: 'Профил',
+  }[page] || 'Galelium Delivery';
+  if (page === 'status') { renderStatusPage(); }
+  if (page === 'orders') { loadOrders(); }
+  if (page === 'store')  { renderStorePage(); }
   closeSB();
-  const pages = document.getElementById('pages');
-  if (pages) pages.scrollTop = 0;
+  document.getElementById('pages').scrollTop = 0;
 };
 
-window.toggleSidebar = function () {
+// ─── Магазины / Каталоги ──────────────────────────────────────
+async function loadStores() {
+  try {
+    const s = await getDocs(query(collection(db, 'stores'), orderBy('order')));
+    stores = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch {
+    // Если нет поля order — грузим без сортировки
+    try {
+      const s2 = await getDocs(collection(db, 'stores'));
+      stores = s2.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch { stores = []; }
+  }
+  renderStoresGrid();
+}
+
+function renderStoresGrid() {
+  const el = document.getElementById('stores-grid');
+  if (!el) return;
+  if (!stores.length) {
+    el.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--tx3);font-size:.76rem">Дӯконҳо ёфт нашуданд</div>';
+    return;
+  }
+  el.innerHTML = stores.map(s => {
+    const imgUrl  = s.imageUrl || '';
+    const prodCnt = prods.filter(p => p.storeId === s.id && p.available !== false).length;
+    const badge   = s.badge || (prodCnt > 0 ? prodCnt + ' маҳсулот' : 'Ба зудӣ');
+    return `
+    <div class="store-card" onclick="openStore('${s.id}')" title="${s.name}">
+      <div class="store-card-img-wrap">
+        ${imgUrl
+          ? `<img class="store-card-img" src="${imgUrl}" alt="${s.name}" loading="lazy" onerror="this.style.display='none'">`
+          : `<div class="store-card-placeholder"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg><span>${s.name}</span></div>`}
+      </div>
+      <div class="store-card-overlay"></div>
+      <div class="store-card-body">
+        <div>
+          <div class="store-card-name">${s.name}</div>
+          ${s.description ? `<div class="store-card-meta">${s.description}</div>` : ''}
+        </div>
+        <div class="store-card-badge">${badge}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+window.openStore = function (sid) {
+  activeStore     = stores.find(s => s.id === sid);
+  storeCatFilter  = 'all';
+  if (!activeStore) return;
+  goPage('store');
+};
+
+window.filterStoreCat = function (id) {
+  storeCatFilter = id;
+  renderStoreCatPills();
+  renderStoreProds();
+};
+
+function renderStorePage() {
+  if (!activeStore) return;
+
+  // Шапка магазина
+  const hdr = document.getElementById('store-header');
+  if (hdr) {
+    const imgUrl = activeStore.imageUrl || '';
+    hdr.innerHTML = `
+    <div class="store-cat-header">
+      ${imgUrl ? `<img class="store-cat-header-img" src="${imgUrl}" alt="${activeStore.name}">` : ''}
+      <div class="store-cat-header-overlay"></div>
+      <div class="store-cat-header-body">
+        <div class="store-cat-header-tag">Дӯкон</div>
+        <div class="store-cat-header-name">${activeStore.name}</div>
+        ${activeStore.description ? `<div class="store-cat-header-desc">${activeStore.description}</div>` : ''}
+      </div>
+    </div>`;
+  }
+
+  renderStoreCatPills();
+  renderStoreProds();
+}
+
+function getStoreCats() {
+  if (!activeStore) return [];
+  const storeProdIds = new Set(
+    prods.filter(p => p.storeId === activeStore.id).map(p => p.categoryId)
+  );
+  return cats.filter(c => storeProdIds.has(c.id));
+}
+
+function renderStoreCatPills() {
+  const el = document.getElementById('store-cats');
+  if (!el) return;
+  const storeCats = getStoreCats();
+  el.innerHTML = `<button class="cat${storeCatFilter === 'all' ? ' active' : ''}" onclick="filterStoreCat('all')">Ҳама</button>`
+    + storeCats.map(c =>
+        `<button class="cat${storeCatFilter === c.id ? ' active' : ''}" onclick="filterStoreCat('${c.id}')">${c.name}</button>`
+      ).join('');
+}
+
+function renderStoreProds() {
+  const el = document.getElementById('store-prods');
+  if (!el || !activeStore) return;
+  let list = prods.filter(p => p.storeId === activeStore.id);
+  if (storeCatFilter !== 'all') list = list.filter(p => p.categoryId === storeCatFilter);
+  if (!list.length) {
+    el.innerHTML = `<div class="store-cat-empty" style="grid-column:1/-1">
+      <span class="store-cat-empty-ico">📦</span>
+      <div class="store-cat-empty-t">Маҳсулот ҳоло нест</div>
+      <div class="store-cat-empty-s">Ба зудӣ маҳсулот илова мешавад</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map(renderPC).join('');
+}
+
+window.toggleSB = function () {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sb-overlay').classList.toggle('open');
 };
@@ -210,968 +465,1160 @@ window.closeSB = function () {
   document.getElementById('sb-overlay').classList.remove('open');
 };
 
-document.getElementById('sb-overlay')?.addEventListener('click', closeSB);
+document.getElementById('sb-overlay').addEventListener('click', closeSB);
 
-// ─── Омор ────────────────────────────────────────────────────
-async function calcStats() {
+// ─── Продукты ─────────────────────────────────────────────────
+async function loadProds() {
   try {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const q   = query(collection(db, COL.ORDERS), where('courierId', '==', CU.uid), where('status', '==', 'delivered'));
-    const sn  = await getDocs(q);
-    const all = sn.docs.map(d => d.data());
-    const td  = all.filter(o => o.updatedAt?.toDate && o.updatedAt.toDate() >= today);
-    todayDeliveries = td.length;
-    todayEarnings   = todayDeliveries * EPD;
-    const dt  = document.getElementById('d-today');   if (dt)  dt.textContent  = todayDeliveries;
-    const dT  = document.getElementById('d-total');   if (dT)  dT.textContent  = CD?.totalDeliveries || 0;
-    const dr  = document.getElementById('d-rating');  if (dr)  dr.textContent  = CD?.rating ? CD.rating.toFixed(1) : '—';
-    updateEarnUI();
-    const pst = document.getElementById('ps-total');  if (pst) pst.textContent = CD?.totalDeliveries || 0;
-    const pse = document.getElementById('ps-earn');   if (pse) pse.textContent = (CD?.earnings || 0) + ' см';
-    const psr = document.getElementById('ps-rating'); if (psr) psr.textContent = CD?.rating ? CD.rating.toFixed(1) : '—';
+    const s = await getDocs(query(collection(db, 'products'), orderBy('name')));
+    prods = s.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch {}
+  renderHomeProds();
+  renderCatalog();
+  renderHomeCats();
+  renderStoreProds();
+  renderStoresGrid();
 }
 
-// ─── Realtime слушатели ──────────────────────────────────────
-function startListeners() {
-  listenNew();
-  listenActive();
+function renderPC(p) {
+  const qty     = getCartQty(p.id);
+  const unavail = !p.available;
+  const ic      = catIcon(p.categoryId, catName(p.categoryId));
+  const imgHtml = p.imageUrl
+    ? `<img src="${p.imageUrl}" alt="${p.name}" loading="lazy">`
+    : `<div style="width:64px;height:64px;opacity:.2">${ic.svg.replace('width="26" height="26"', 'width="64" height="64"')}</div>`;
+  const controls = unavail
+    ? `<button class="add-btn" disabled title="Нест"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`
+    : qty > 0
+      ? `<div class="pc-qty"><button class="pc-qty-btn" onclick="event.stopPropagation();pcMinus('${p.id}')">−</button><div class="pc-qty-val">${qty}</div><button class="pc-qty-btn" onclick="event.stopPropagation();pcPlus('${p.id}')">+</button></div>`
+      : `<button class="add-btn" onclick="event.stopPropagation();addToCart('${p.id}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>`;
+  return `<div class="pc" onclick="openProdModal('${p.id}')"><div class="pc-img">${imgHtml}${unavail ? '<div class="pc-badge">Нест</div>' : ''}</div><div class="pc-body"><div class="pc-cat">${catName(p.categoryId)}</div><div class="pc-name">${p.name}</div><div class="pc-desc">${p.description || ''}</div><div class="pc-footer"><div class="pc-price">${p.price}<span> см</span></div>${controls}</div></div></div>`;
 }
 
-function listenNew() {
-  if (unsubNew) { unsubNew(); unsubNew = null; }
-  const q   = query(collection(db, COL.ORDERS), where('status', 'in', ['pending', 'confirmed']), where('courierId', '==', null));
-  let first = true;
-  unsubNew  = onSnapshot(q, sn => {
-    const prev = newOrders.length;
-    newOrders  = sn.docs.map(d => ({ id: d.id, ...d.data() }));
-    updateNewBadge();
-    renderNewOrders();
-    renderDashNew();
-    if (!first && newOrders.length > prev) { playBeep(); toast('🔔 Фармоиши нав!', 'info'); renderNotif(); }
-    first = false;
-  });
+// ─── Модалка карточки товара ──────────────────────────────────
+window.openProdModal = function (pid) {
+  const p = prods.find(x => x.id === pid);
+  if (!p) return;
+  renderProdModal(p);
+  document.getElementById('prod-modal-bg').classList.add('open');
+  document.getElementById('prod-modal-scroll').scrollTop = 0;
+};
+
+function renderProdModal(p) {
+  const qty     = getCartQty(p.id);
+  const unavail = p.available === false;
+  const ic      = catIcon(p.categoryId, catName(p.categoryId));
+  const cname   = catName(p.categoryId);
+
+  // Hero
+  const heroHtml = p.imageUrl
+    ? `<img class="pm-hero-img" src="${p.imageUrl}" alt="${p.name}" loading="lazy">`
+    : `<div class="pm-hero-ph">${ic.svg.replace('width="26" height="26"', 'width="100" height="100"')}</div>`;
+
+  // Магазин (если есть)
+  const store    = stores.find(s => s.id === p.storeId);
+  const storeBadge = store
+    ? `<div class="pm-badge-store">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+        ${store.name}
+       </div>`
+    : '';
+
+  // Рейтинг (если есть поле rating в Firestore)
+  const ratingHtml = p.rating
+    ? (() => {
+        const r = Math.round(p.rating * 2) / 2;
+        const full = Math.floor(r), half = r % 1;
+        const stars = '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(5 - Math.ceil(r));
+        return `<div class="pm-rating">
+          <div class="pm-stars">${[...stars].map(s =>
+            `<span class="pm-star" style="color:${s==='☆'?'var(--b1)':'#f59e0b'}">${s==='½'?'⯨':s}</span>`
+          ).join('')}</div>
+          <span class="pm-rating-val">${p.rating.toFixed(1)}</span>
+          ${p.reviewCount ? `<span class="pm-rating-cnt">(${p.reviewCount} отзыв)</span>` : ''}
+        </div>`;
+      })()
+    : '';
+
+  // Чипсы — характеристики из Firestore
+  const chips = [];
+  if (p.weight)      chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a1 1 0 100 2 1 1 0 000-2z"/><path d="M5 21h14l-2-11H7z"/></svg>`, label: p.weight + ' г' });
+  if (p.volume)      chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2h6l1 7H8z"/><path d="M8 9a5 5 0 0010 0"/></svg>`, label: p.volume + ' мл' });
+  if (p.brand)       chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>`, label: p.brand });
+  if (p.country)     chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>`, label: p.country });
+  if (p.expiry)      chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`, label: p.expiry });
+  if (p.organic)     chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-6 8-12a8 8 0 00-16 0c0 6 8 12 8 12z"/></svg>`, label: 'Органик' });
+  if (cname && !chips.find(c => c.label === cname)) chips.unshift({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>`, label: cname });
+  const chipsHtml = chips.length
+    ? `<div class="pm-chips">${chips.map(c => `<span class="pm-chip">${c.icon} ${c.label}</span>`).join('')}</div>`
+    : '';
+
+  // Пищевая ценность (если есть в Firestore)
+  const nutKeys = [
+    { k: 'calories', l: 'Ккал' },
+    { k: 'protein',  l: 'Белок' },
+    { k: 'fat',      l: 'Жир' },
+    { k: 'carbs',    l: 'Углев' },
+  ];
+  const nutItems = nutKeys.filter(n => p[n.k] != null);
+  const nutritionHtml = nutItems.length >= 2
+    ? `<div class="pm-div"></div>
+       <div style="font-size:.48rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin-bottom:10px">Пищевая ценность / 100г</div>
+       <div class="pm-nutrition">${nutItems.map(n =>
+         `<div class="pm-nut-item"><div class="pm-nut-val">${p[n.k]}</div><div class="pm-nut-lbl">${n.l}</div></div>`
+       ).join('')}</div>`
+    : '';
+
+  // Кнопки
+  const buyHtml = unavail
+    ? `<button class="pm-add-btn" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><line x1="9" y1="15" x2="15" y2="9"/></svg>
+        Мавҷуд нест
+       </button>`
+    : qty > 0
+      ? `<div class="pm-buy-wrap">
+           <div class="pm-qty-box">
+             <button class="pm-qty-btn" onclick="pmMinus('${p.id}')">−</button>
+             <div class="pm-qty-num" id="pm-qty-${p.id}">${qty}</div>
+             <button class="pm-qty-btn" onclick="pmPlus('${p.id}')">+</button>
+           </div>
+           <button class="pm-go-cart" onclick="closeProdModal();goPage('cart')">
+             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+             Ба сабад — ${p.price * qty} см
+           </button>
+         </div>`
+      : `<button class="pm-add-btn" onclick="pmAdd('${p.id}')">
+           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+           Ба сабад илова кунед
+         </button>`;
+
+  document.getElementById('prod-modal-inner').innerHTML = `
+    <div class="pm-hero">
+      ${heroHtml}
+      <button class="pm-close" onclick="closeProdModal()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+      ${unavail ? '<div class="pm-badge-unavail">Мавҷуд нест</div>' : ''}
+      ${storeBadge}
+    </div>
+
+    <div class="pm-body">
+      <div class="pm-cat-line">
+        <div class="pm-cat-dot"></div>
+        <div class="pm-cat-lbl">${cname || 'Маҳсулот'}</div>
+      </div>
+
+      <div class="pm-name">${p.name}</div>
+
+      ${ratingHtml}
+
+      ${p.description ? `<div class="pm-desc">${p.description}</div>` : ''}
+
+      ${chipsHtml}
+
+      ${nutritionHtml}
+
+      <div class="pm-div"></div>
+
+      <div class="pm-buy-row">
+        <div class="pm-price-line">
+          <div class="pm-price">${p.price}</div>
+          <div class="pm-price-unit">см</div>
+          ${p.weight ? `<div class="pm-price-per">· за ${p.weight}г</div>` : ''}
+        </div>
+        ${buyHtml}
+      </div>
+    </div>`;
 }
 
-function listenActive() {
-  if (unsubActive) { unsubActive(); unsubActive = null; }
-  const q = query(
-    collection(db, COL.ORDERS),
-    where('courierId', '==', CU.uid),
-    where('status', 'in', ['courier_heading', 'courier_arrived', 'collecting', 'delivering', 'client_arrived']),
-    limit(1)
+// Кнопки внутри модалки товара
+window.pmAdd = async function (pid) {
+  await addToCart(pid);
+  const p = prods.find(x => x.id === pid);
+  if (p) renderProdModal(p); // перерисовать модалку с счётчиком
+};
+
+window.pmPlus = async function (pid) {
+  await addToCart(pid);
+  const p   = prods.find(x => x.id === pid);
+  const qty = getCartQty(pid);
+  const qEl = document.getElementById(`pm-qty-${pid}`);
+  if (qEl) {
+    qEl.textContent = qty;
+    const goBtn = document.querySelector('.pm-go-cart');
+    if (goBtn && p) goBtn.lastChild.textContent = ` Ба сабад — ${p.price * qty} см`;
+  } else {
+    if (p) renderProdModal(p);
+  }
+};
+
+window.pmMinus = async function (pid) {
+  await pcMinus(pid);
+  const p   = prods.find(x => x.id === pid);
+  const qty = getCartQty(pid);
+  if (!qty) {
+    if (p) renderProdModal(p);
+  } else {
+    const qEl = document.getElementById(`pm-qty-${pid}`);
+    if (qEl) {
+      qEl.textContent = qty;
+      // обновляем цену в кнопке "Ба сабад"
+      const goBtn = document.querySelector('.pm-go-cart');
+      if (goBtn && p) goBtn.lastChild.textContent = ` Ба сабад — ${p.price * qty} см`;
+    }
+  }
+};
+
+window.closeProdModal = function (e) {
+  if (e && e.target !== document.getElementById('prod-modal-bg')) return;
+  document.getElementById('prod-modal-bg').classList.remove('open');
+};
+
+window.pcPlus  = async function (pid) { await addToCart(pid); };
+window.pcMinus = async function (pid) {
+  const item = cart.find(c => c.productId === pid);
+  if (!item) return;
+  const nq = item.quantity - 1;
+  const cr = doc(db, 'users', CU.uid, 'cart', pid);
+  if (nq <= 0) {
+    await deleteDoc(cr);
+    cart = cart.filter(c => c.productId !== pid);
+  } else {
+    await updateDoc(cr, { quantity: nq, updatedAt: serverTimestamp() });
+    item.quantity = nq;
+  }
+  renderCart(); renderHomeProds(); renderCatalog(); renderStoreProds(); updateBadges();
+};
+
+function renderHomeProds() {
+  const el   = document.getElementById('home-prods');
+  if (!el) return;
+  const list = prods.filter(p => p.available !== false).slice(0, 8);
+  el.innerHTML = list.length
+    ? list.map(renderPC).join('')
+    : `<div class="empty" style="grid-column:1/-1"><div class="empty-t">Маҳсулот нест</div></div>`;
+}
+
+function renderCatalog() {
+  const el = document.getElementById('cat-prods');
+  if (!el) return;
+  let list = [...prods];
+  if (catFilter !== 'all') list = list.filter(p => p.categoryId === catFilter);
+  if (searchQ)             list = list.filter(p =>
+    p.name.toLowerCase().includes(searchQ.toLowerCase()) ||
+    (p.description || '').toLowerCase().includes(searchQ.toLowerCase())
   );
-  unsubActive = onSnapshot(q, sn => {
-    activeOrder = sn.empty ? null : { id: sn.docs[0].id, ...sn.docs[0].data() };
-    renderActive();
-    renderDashActive();
-    updateActiveBadge();
-  });
+  el.innerHTML = list.length
+    ? list.map(renderPC).join('')
+    : `<div class="empty" style="grid-column:1/-1"><div class="empty-t">Ҳеҷ чиз ёфт нашуд</div></div>`;
 }
 
-// ─── Бейджи ──────────────────────────────────────────────────
-function updateNewBadge() {
-  const cnt = newOrders.length;
-  ['new-badge', 'mob-new-badge'].forEach(id => {
+// ─── Категории ────────────────────────────────────────────────
+async function loadCats() {
+  try {
+    const s = await getDocs(collection(db, 'categories'));
+    cats = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch {}
+  renderCatPills();
+  renderHomeCats();
+}
+
+function renderCatPills() {
+  const el = document.getElementById('cats');
+  if (!el) return;
+  el.innerHTML = `<button class="cat${catFilter === 'all' ? ' active' : ''}" onclick="filterCat('all')">Ҳама</button>`
+    + cats.map(c => `<button class="cat${catFilter === c.id ? ' active' : ''}" onclick="filterCat('${c.id}')">${c.name}</button>`).join('');
+}
+
+function renderHomeCats() {
+  const el    = document.getElementById('home-cats');
+  if (!el) return;
+  const shown = cats.slice(0, 4);
+  if (!shown.length) { el.innerHTML = ''; return; }
+  el.innerHTML = shown.map(c => {
+    const count = prods.filter(p => p.categoryId === c.id && p.available !== false).length;
+    const ic    = catIcon(c.id, c.name);
+    return `<div class="cat-panel" style="--cat-c:${ic.color};--cat-bg:${ic.bg}" onclick="filterCat('${c.id}');goPage('catalog')"><div class="cat-panel-ico">${ic.svg}</div><div class="cat-panel-name">${c.name}</div><div class="cat-panel-count">${count} маҳсулот</div></div>`;
+  }).join('');
+}
+
+window.filterCat = function (id) {
+  catFilter = id;
+  renderCatPills();
+  renderCatalog();
+};
+
+// ─── Поиск ───────────────────────────────────────────────────
+window.onHomeSearch = function (v) {
+  homeSearchQ = v;
+  document.getElementById('search-clear').classList.toggle('show', v.length > 0);
+  renderSD(v);
+};
+
+window.clearHS = function () {
+  homeSearchQ = '';
+  document.getElementById('search-inp-home').value = '';
+  document.getElementById('search-clear').classList.remove('show');
+  closeSD();
+};
+
+window.openSD = function () { if (homeSearchQ) renderSD(homeSearchQ); };
+
+function renderSD(q) {
+  const dd = document.getElementById('search-dd');
+  if (!q) { dd.classList.remove('open'); return; }
+  const res = prods
+    .filter(p => p.available !== false && (
+      p.name.toLowerCase().includes(q.toLowerCase()) ||
+      (p.description || '').toLowerCase().includes(q.toLowerCase())
+    ))
+    .slice(0, 7);
+  if (!res.length) {
+    dd.innerHTML = `<div class="srd-empty">Ҳеҷ чиз ёфт нашуд 🔍</div>`;
+    dd.classList.add('open');
+    return;
+  }
+  dd.innerHTML = res.map(p => {
+    const ic = catIcon(p.categoryId, catName(p.categoryId));
+    return `<div class="srd-item" onclick="pickSD('${p.id}')"><div class="srd-img">${p.imageUrl ? `<img src="${p.imageUrl}" alt="">` : ic.svg}</div><div class="srd-info"><div class="srd-name">${p.name}</div><div class="srd-cat">${catName(p.categoryId)}</div></div><div class="srd-price">${p.price} см</div></div>`;
+  }).join('');
+  dd.classList.add('open');
+}
+
+function closeSD() { document.getElementById('search-dd').classList.remove('open'); }
+
+window.pickSD = function (pid) {
+  closeSD(); clearHS();
+  catFilter = 'all';
+  searchQ   = prods.find(p => p.id === pid)?.name || '';
+  renderCatalog();
+  goPage('catalog');
+  searchQ = '';
+};
+
+document.addEventListener('click', e => {
+  const sb = document.getElementById('search-box');
+  if (sb && !sb.contains(e.target)) closeSD();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeOrderModal(); closeProdModal(); }
+});
+
+window.onSearch = function (v) {
+  searchQ = v;
+  renderCatalog();
+  if (v) goPage('catalog');
+};
+
+// ─── Корзина ─────────────────────────────────────────────────
+async function loadCart() {
+  try {
+    const s = await getDocs(collection(db, 'users', CU.uid, 'cart'));
+    cart = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch { cart = []; }
+  renderCart();
+  updateBadges();
+}
+
+window.addToCart = async function (pid) {
+  if (!requireAuth('Барои илова кардан ба сабад ворид шавед')) return;
+  const p = prods.find(x => x.id === pid);
+  if (!p || !CU) return;
+  const cr = doc(db, 'users', CU.uid, 'cart', p.id);
+  const ex = cart.find(c => c.productId === p.id);
+  try {
+    if (ex) {
+      await updateDoc(cr, { quantity: increment(1), updatedAt: serverTimestamp() });
+      ex.quantity++;
+    } else {
+      const item = { productId: p.id, name: p.name, price: p.price, imageUrl: p.imageUrl || '', quantity: 1, addedAt: serverTimestamp(), updatedAt: serverTimestamp() };
+      await setDoc(cr, item);
+      cart.push({ id: p.id, ...item });
+    }
+    toast(p.name + ' илова шуд', 'ok');
+    renderCart(); renderHomeProds(); renderCatalog(); renderStoreProds(); updateBadges();
+  } catch { toast('Хато', 'err'); }
+};
+
+window.updateQty = async function (pid, d) {
+  const item = cart.find(c => c.productId === pid);
+  if (!item) return;
+  const nq = item.quantity + d;
+  const cr = doc(db, 'users', CU.uid, 'cart', pid);
+  if (nq <= 0) {
+    await deleteDoc(cr);
+    cart = cart.filter(c => c.productId !== pid);
+  } else {
+    await updateDoc(cr, { quantity: nq, updatedAt: serverTimestamp() });
+    item.quantity = nq;
+  }
+  renderCart(); updateBadges();
+};
+
+window.removeCI = async function (pid) {
+  await deleteDoc(doc(db, 'users', CU.uid, 'cart', pid));
+  cart = cart.filter(c => c.productId !== pid);
+  renderCart(); renderHomeProds(); renderCatalog(); updateBadges();
+};
+
+window.clearCartUI = async function () {
+  if (!cart.length) return;
+  if (!confirm('Сабадро тоза кунем?')) return;
+  const b = writeBatch(db);
+  cart.forEach(c => b.delete(doc(db, 'users', CU.uid, 'cart', c.productId)));
+  await b.commit();
+  cart = [];
+  renderCart(); renderHomeProds(); renderCatalog(); renderStoreProds(); updateBadges();
+};
+
+function renderCart() {
+  const el = document.getElementById('cart-list');
+  if (!el) return;
+  if (GUEST) {
+    el.innerHTML = `<div class="empty" style="padding:52px 20px 20px">
+      <span class="empty-ico">🔐</span>
+      <div class="empty-t">Барои истифода аз сабад ворид шавед</div>
+      <div class="empty-s" style="margin-bottom:20px">Маҳсулотро интихоб кунед ва фармоиш диҳед</div>
+      <button onclick="goLogin()" style="background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:10px;color:#fff;font-size:.74rem;font-family:var(--fs);font-weight:700;padding:10px 28px;cursor:pointer;box-shadow:0 3px 12px rgba(26,158,74,.3)">Ворид шавед / Ҳисоб кушоед</button>
+    </div>`;
+    const cs = document.getElementById('cart-sum');   if (cs) cs.style.opacity = '.5';
+    const cb = document.getElementById('checkout-btn'); if (cb) cb.disabled = true;
+    return;
+  }
+  if (!cart.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-ico">🛒</span><div class="empty-t">Сабад холӣ аст</div><div class="empty-s">Аз каталог маҳсулот илова кунед</div></div>';
+    const cs = document.getElementById('cart-sum');   if (cs) cs.style.opacity = '.5';
+    const cb = document.getElementById('checkout-btn'); if (cb) cb.disabled = true;
+  } else {
+    el.innerHTML = cart.map(i => {
+      const ic = catIcon(i.productId, '').svg;
+      return `<div class="ci"><div class="ci-img">${i.imageUrl ? `<img src="${i.imageUrl}" alt="">` : ic}</div><div class="ci-info"><div class="ci-name">${i.name}</div><div class="ci-price">${i.price} см / дона</div></div><div class="qty"><button class="qty-btn" onclick="updateQty('${i.productId}',-1)">−</button><div class="qty-val">${i.quantity}</div><button class="qty-btn" onclick="updateQty('${i.productId}',1)">+</button></div><div class="ci-total">${i.price * i.quantity} см</div><button class="ci-del" onclick="removeCI('${i.productId}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button></div>`;
+    }).join('');
+    const cs = document.getElementById('cart-sum');   if (cs) cs.style.opacity = '1';
+    const cb = document.getElementById('checkout-btn'); if (cb) cb.disabled = false;
+  }
+  const sub = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+  const tot = sub + (cart.length ? DFEE : 0);
+  const ci  = document.getElementById('cs-items');  if (ci) ci.textContent = sub + ' см';
+  const cd  = document.getElementById('cs-del');    if (cd) cd.textContent = cart.length ? DFEE + ' см' : '0 см';
+  const ct  = document.getElementById('cs-total');  if (ct) ct.textContent = tot + ' см';
+}
+
+function updateBadges() {
+  const cnt = cart.reduce((s, c) => s + c.quantity, 0);
+  ['cart-nb', 'mob-cart-b'].forEach(id => {
     const b = document.getElementById(id);
     if (b) { b.style.display = cnt > 0 ? '' : 'none'; b.textContent = cnt; }
   });
-  const el = document.getElementById('new-count-txt');
-  if (el) el.textContent = cnt + ' фармоиш';
+  const tb = document.getElementById('tb-cnt');
+  if (tb) tb.textContent = cnt;
 }
 
-function updateActiveBadge() {
-  ['active-badge', 'mob-active-badge'].forEach(id => {
-    const b = document.getElementById(id);
-    if (b) b.style.display = activeOrder ? '' : 'none';
+function setAddr() {
+  if (UD?.address) {
+    updateAddrCard(UD.address, UD.lat || null, UD.lng || null);
+  }
+}
+
+// ─── Адрес + Карта (Leaflet + OpenStreetMap) ─────────────────
+let _map        = null;
+let _addrCtx    = null;
+let _addrPicked = null;
+let _geoTimer   = null;
+let _sugTimer   = null;
+
+const DUSHANBE = [38.5598, 68.7733];
+
+window.openAddrModal = function (ctx) {
+  if (!requireAuth('Барои нишон додани суроғ ворид шавед')) return;
+  _addrCtx = ctx || 'cart';
+  document.getElementById('addr-modal-bg').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Предзаполняем текущий адрес
+  const curAddr = document.getElementById('cart-addr')?.value || UD?.address || '';
+  const curLat  = parseFloat(document.getElementById('cart-lat')?.value) || UD?.lat;
+  const curLng  = parseFloat(document.getElementById('cart-lng')?.value) || UD?.lng;
+
+  if (curAddr) {
+    document.getElementById('addr-search-inp').value = curAddr;
+    document.getElementById('addr-search-clear').classList.add('show');
+    const bv = document.getElementById('addr-bottom-val');
+    bv.textContent = curAddr;
+    bv.classList.remove('placeholder');
+    document.getElementById('addr-confirm-btn').disabled = false;
+    _addrPicked = { address: curAddr, lat: curLat || DUSHANBE[0], lng: curLng || DUSHANBE[1] };
+  }
+
+  // Инициализируем карту после открытия (нужен visible DOM)
+  requestAnimationFrame(() => setTimeout(() => initLeaflet(curLat, curLng), 120));
+};
+
+function initLeaflet(lat, lng) {
+  const center = (lat && lng) ? [lat, lng] : DUSHANBE;
+  const zoom   = (lat && lng) ? 16 : 13;
+
+  if (_map) {
+    _map.setView(center, zoom);
+    return;
+  }
+
+  _map = L.map('addr-map', {
+    center, zoom,
+    zoomControl: false,
+    attributionControl: false,
+  });
+
+  // Тайлы — можно выбрать любой стиль
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(_map);
+
+  // Кнопка зума своя (в нужном углу)
+  L.control.zoom({ position: 'bottomright' }).addTo(_map);
+
+  // При движении карты — reverse geocode по центру
+  _map.on('movestart', () => {
+    document.getElementById('addr-map-pin').classList.add('dragging');
+    document.getElementById('addr-map-pulse').style.opacity = '0';
+  });
+
+  _map.on('moveend', () => {
+    document.getElementById('addr-map-pin').classList.remove('dragging');
+    const c = _map.getCenter();
+    reverseGeocode(c.lat, c.lng);
   });
 }
 
-// ─── Карточка нового заказа ───────────────────────────────────
-function orderCard(o, withCountdown = false) {
-  const items = (o.items || []).map(i => `${i.name} ×${i.quantity}`).join(', ');
-  const time  = o.createdAt?.toDate ? o.createdAt.toDate().toLocaleTimeString('tg-TJ', { hour: '2-digit', minute: '2-digit' }) : '—';
-  const pay   = o.paymentMethod === 'cash' ? 'Нақдӣ' : o.paymentMethod === 'card' ? 'Корт' : 'Онлайн';
-  const total = o.total || 0;
-  return `<div class="oc" id="oc-${o.id}">
-    <div class="oc-top">
-      <div class="oc-left">
-        <div class="oc-meta">
-          <span class="oc-num">#${o.orderNumber || o.id.slice(-6).toUpperCase()}</span>
-          <span class="oc-pill">${SL[o.status] || o.status}</span>
-        </div>
-        <div class="oc-addr">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          ${o.address || 'Суроғ нест'}
-        </div>
-      </div>
-      <div class="oc-time-wrap">
-        <div class="oc-time">${time}</div>
-        <div class="oc-earn-badge">${EPD} см</div>
-      </div>
-    </div>
-    ${withCountdown ? `<div class="cd-wrap"><div class="cd-track"><div class="cd-fill" id="cd-${o.id}"></div></div><div class="cd-row"><span>Қабул кунед</span><span id="cd-txt-${o.id}">60с</span></div></div>` : ''}
-    <div class="oc-items-box">
-      <div class="oc-items-label">Таркиб</div>
-      <div class="oc-items-text">${items}</div>
-    </div>
-    <div class="oc-footer">
-      <div class="oc-chips">
-        <span class="oc-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="1"/><path d="M2 10h20"/></svg>${pay}</span>
-        <span class="oc-chip"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>${total} см</span>
-        ${o.comment ? `<span class="oc-chip">💬 ${o.comment}</span>` : ''}
-      </div>
-      <button class="btn-take" onclick="acceptOrder('${o.id}')" id="btn-${o.id}" ${activeOrder ? 'disabled title="Фармоиши фаъол дорад"' : ''}>
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-        Қабул
-      </button>
-    </div>
-  </div>`;
+function reverseGeocode(lat, lng) {
+  clearTimeout(_geoTimer);
+  _geoTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`,
+        { headers: { 'Accept-Language': 'ru' } }
+      );
+      const d = await r.json();
+      const a = d.address || {};
+      // Формируем красивый адрес
+      const parts = [
+        a.road || a.pedestrian || a.street || '',
+        a.house_number ? a.house_number : '',
+        a.suburb || a.neighbourhood || '',
+        a.city || a.town || a.village || 'Душанбе',
+      ].filter(Boolean);
+      const addr = parts.join(', ');
+      _addrPicked = { address: addr, lat, lng };
+      const bv = document.getElementById('addr-bottom-val');
+      if (bv) { bv.textContent = addr; bv.classList.remove('placeholder'); }
+      const si = document.getElementById('addr-search-inp');
+      if (si) si.value = addr;
+      document.getElementById('addr-search-clear')?.classList.add('show');
+      document.getElementById('addr-confirm-btn').disabled = false;
+      document.getElementById('addr-map-pulse').style.opacity = '1';
+    } catch { /* тихо */ }
+  }, 500);
 }
 
-// ─── Обратный отсчёт ─────────────────────────────────────────
-const CDS = {};
-function startCD(oid) {
-  if (CDS[oid]) return;
-  let s = 60;
-  CDS[oid] = setInterval(() => {
-    s--;
-    const bar = document.getElementById('cd-' + oid);
-    const txt = document.getElementById('cd-txt-' + oid);
-    if (bar) { bar.style.width = (s / 60 * 100) + '%'; bar.style.background = s < 15 ? 'var(--red)' : s < 30 ? 'var(--amber)' : 'var(--acc)'; }
-    if (txt) txt.textContent = s + 'с';
-    if (s <= 0) { clearInterval(CDS[oid]); delete CDS[oid]; }
-  }, 1000);
+// Поиск через Nominatim
+window.onAddrSearch = function (val) {
+  document.getElementById('addr-search-clear').classList.toggle('show', val.length > 0);
+  hideSuggestions();
+  if (!val.trim()) return;
+  clearTimeout(_sugTimer);
+  _sugTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val + ' Душанбе Таджикистан')}&format=json&limit=5&accept-language=ru&countrycodes=tj`,
+        { headers: { 'Accept-Language': 'ru' } }
+      );
+      const results = await r.json();
+      if (!results.length) { hideSuggestions(); return; }
+      showSuggestions(results);
+    } catch { hideSuggestions(); }
+  }, 350);
+};
+
+function showSuggestions(results) {
+  const el = document.getElementById('addr-suggestions');
+  el.innerHTML = results.map(p => {
+    const parts = p.display_name.split(', ');
+    const main  = parts.slice(0, 2).join(', ');
+    const sec   = parts.slice(2, 4).join(', ');
+    return `<div class="addr-sug-item" onclick="pickSuggestion(${p.lat},${p.lon},'${escHtml(main)}')">
+      <div class="addr-sug-ico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+      <div><div class="addr-sug-main">${escHtml(main)}</div><div class="addr-sug-sec">${escHtml(sec)}</div></div>
+    </div>`;
+  }).join('');
+  el.style.display = 'block';
 }
 
-// ─── Рендер новых заказов ────────────────────────────────────
-function renderNewOrders() {
-  const el = document.getElementById('new-orders-list');
-  if (!el) return;
-  const sorted = [...newOrders].sort((a, b) => (a.createdAt?.toDate?.().getTime() || 0) - (b.createdAt?.toDate?.().getTime() || 0));
-  if (!sorted.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><div class="empty-t">Фармоишҳои нав нест</div><div class="empty-s">Фармоишҳо автоматӣ пайдо мешаванд</div></div>`;
+function hideSuggestions() {
+  const el = document.getElementById('addr-suggestions');
+  if (el) el.style.display = 'none';
+}
+
+window.pickSuggestion = function (lat, lng, name) {
+  hideSuggestions();
+  lat = parseFloat(lat); lng = parseFloat(lng);
+  document.getElementById('addr-search-inp').value = name;
+  _addrPicked = { address: name, lat, lng };
+  const bv = document.getElementById('addr-bottom-val');
+  if (bv) { bv.textContent = name; bv.classList.remove('placeholder'); }
+  document.getElementById('addr-confirm-btn').disabled = false;
+  document.getElementById('addr-map-pulse').style.opacity = '1';
+  if (_map) _map.setView([lat, lng], 17);
+};
+
+window.clearAddrSearch = function () {
+  document.getElementById('addr-search-inp').value = '';
+  document.getElementById('addr-search-clear').classList.remove('show');
+  hideSuggestions();
+};
+
+window.goMyLocation = function () {
+  const btn = document.getElementById('addr-myloc-btn');
+  if (!navigator.geolocation) { toast('Геолокатсия дастгирӣ намешавад', 'err'); return; }
+  btn.style.animation = 'spinBtn 1s linear infinite';
+  navigator.geolocation.getCurrentPosition(pos => {
+    btn.style.animation = '';
+    const { latitude: lat, longitude: lng } = pos.coords;
+    if (_map) { _map.setView([lat, lng], 17); reverseGeocode(lat, lng); }
+  }, () => {
+    btn.style.animation = '';
+    toast('Мавқеъ муайян нашуд', 'err');
+  }, { timeout: 8000 });
+};
+
+window.closeAddrModal = function () {
+  document.getElementById('addr-modal-bg').classList.remove('open');
+  document.body.style.overflow = '';
+  hideSuggestions();
+};
+
+window.confirmAddr = function () {
+  if (!_addrPicked) return;
+  const floor = document.getElementById('addr-floor').value.trim();
+  const apt   = document.getElementById('addr-apt').value.trim();
+  const note  = document.getElementById('addr-note').value.trim();
+  let full    = _addrPicked.address;
+  const extra = [floor ? 'ош. ' + floor : '', apt ? 'хв. ' + apt : '', note].filter(Boolean).join(', ');
+  if (extra) full += ', ' + extra;
+
+  // Обновляем UI карточки и hidden inputs
+  updateAddrCard(full, _addrPicked.lat, _addrPicked.lng);
+
+  // Сохраняем в Firestore — коллекция users/{uid}, поля address + lat + lng
+  if (CU) {
+    setDoc(doc(db, 'users', CU.uid), {
+      address:   full,
+      lat:       _addrPicked.lat,
+      lng:       _addrPicked.lng,
+      updatedAt: serverTimestamp(),
+    }, { merge: true }).then(() => {
+      // Обновляем локальный UD
+      UD = { ...UD, address: full, lat: _addrPicked.lat, lng: _addrPicked.lng };
+      // Синхронизируем профиль и сайдбар
+      renderSB();
+      renderProfile();
+      // Обновляем поле адреса в профиле
+      const pfa = document.getElementById('pf-addr');
+      if (pfa) pfa.value = full;
+    });
+  }
+
+  toast('Суроғ тасдиқ шуд ✓', 'ok');
+  closeAddrModal();
+};
+
+function updateAddrCard(address, lat, lng) {
+  // Hidden inputs для оформления заказа
+  const ca = document.getElementById('cart-addr');
+  const cl = document.getElementById('cart-lat');
+  const cn = document.getElementById('cart-lng');
+  if (ca) ca.value = address;
+  if (cl) cl.value = lat || '';
+  if (cn) cn.value = lng || '';
+
+  // Карточка-кнопка в корзине
+  const display = document.getElementById('cart-addr-display');
+  const coords  = document.getElementById('cart-addr-coords');
+  if (display) { display.textContent = address; display.classList.remove('empty'); }
+  if (coords && lat && lng) {
+    coords.textContent = `📍 ${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
+    coords.style.display = 'block';
+  }
+
+  // Сайдбар
+  const adv = document.getElementById('sb-addr-val');
+  if (adv) { adv.textContent = address; adv.classList.remove('empty'); }
+
+  // Поле адреса в профиле
+  const pfa = document.getElementById('pf-addr');
+  if (pfa) pfa.value = address;
+  const pfc = document.getElementById('pf-addr-coords');
+  if (pfc && lat && lng) {
+    pfc.textContent = `📍 ${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
+    pfc.style.display = 'block';
+  }
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+
+// ─── Оформление заказа ────────────────────────────────────────
+window.doCheckout = async function () {
+  if (!requireAuth('Барои фармоиш ворид шавед')) return;
+  if (!cart.length) return;
+  const addr = document.getElementById('cart-addr').value.trim();
+  const lat  = parseFloat(document.getElementById('cart-lat')?.value) || null;
+  const lng  = parseFloat(document.getElementById('cart-lng')?.value) || null;
+  if (!addr) {
+    toast('Суроғи расониданро нишон диҳед', 'err');
+    document.getElementById('cart-addr').focus();
     return;
   }
-  el.innerHTML = sorted.map((o, i) => orderCard(o, i === 0)).join('');
-  if (sorted[0]) startCD(sorted[0].id);
-}
-
-function renderDashNew() {
-  const el = document.getElementById('dash-new-orders');
-  if (!el) return;
-  const sorted = [...newOrders].sort((a, b) => (a.createdAt?.toDate?.().getTime() || 0) - (b.createdAt?.toDate?.().getTime() || 0));
-  if (!sorted.length) {
-    el.innerHTML = `<div class="empty" style="padding:28px 20px"><div class="empty-ico">📭</div><div class="empty-t">Фармоишҳо нест</div><div class="empty-s">Интизор ем…</div></div>`;
-    renderNotif(); return;
-  }
-  el.innerHTML = sorted.slice(0, 2).map(o => orderCard(o)).join('');
-  renderNotif();
-}
-
-function renderNotif() {
-  const w = document.getElementById('notif-wrap');
-  if (!w) return;
-  if (!newOrders.length) { w.innerHTML = ''; return; }
-  w.innerHTML = `<div class="live-banner" onclick="goPage('new-orders')">
-    <div class="live-pulse"></div>
-    <div class="live-info"><div class="live-lbl">Фармоишҳои нав</div><div class="live-txt">${newOrders.length} фармоиш интизори курьер аст</div></div>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-  </div>`;
-}
-
-// ─── Қабули фармоиш ──────────────────────────────────────────
-window.acceptOrder = async function (oid) {
-  if (activeOrder) { toast('Шумо аллакай фармоиш доред', 'err'); return; }
-  const btn = document.getElementById('btn-' + oid);
-  if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spin" style="width:13px;height:13px;border-color:rgba(0,0,0,.2);border-top-color:#000"></div>'; }
+  const btn = document.getElementById('checkout-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spin" style="border-color:rgba(255,255,255,.3);border-top-color:#fff;width:14px;height:14px"></div> Расмикунонӣ…';
   try {
-    await updateDoc(doc(db, COL.ORDERS, oid), {
-      courierId:   CU.uid,
-      courierName: UD?.displayName || '',
-      status:      'courier_heading',
-      updatedAt:   serverTimestamp(),
+    const sub  = cart.reduce((s, c) => s + c.price * c.quantity, 0);
+    const oNum = nextOrderNum();
+    const confirmCode = Math.floor(1000 + Math.random() * 9000).toString();
+    const ref  = await addDoc(collection(db, 'orders'), {
+      clientId:      CU.uid,
+      clientName:    UD?.displayName || '',
+      orderNumber:   oNum,
+      confirmCode:   confirmCode,
+      items:         cart.map(c => ({ productId: c.productId, name: c.name, price: c.price, quantity: c.quantity })),
+      total:         sub + DFEE,
+      address:       addr,
+      lat:           lat,
+      lng:           lng,
+      comment:       document.getElementById('cart-comment').value.trim(),
+      paymentMethod: document.getElementById('cart-pay').value,
+      status:        'pending',
+      courierId:     null,
+      courierName:   null,
+      createdAt:     serverTimestamp(),
+      updatedAt:     serverTimestamp(),
     });
-    await setDoc(doc(db, COL.COURIERS, CU.uid), {
-      currentOrderId: oid, isActive: true, isOnline: true, updatedAt: serverTimestamp(),
-    }, { merge: true });
-    CD = { ...CD, currentOrderId: oid, isActive: true, isOnline: true };
-    updateOnlineUI(true);
-    checkedItems = new Set();
-    toast('Фармоиш қабул шуд! 🚀', 'ok');
-    goPage('active');
+    activeOid = ref.id;
+    const b = writeBatch(db);
+    cart.forEach(c => b.delete(doc(db, 'users', CU.uid, 'cart', c.productId)));
+    await b.commit();
+    cart = [];
+    renderCart(); updateBadges();
+    toast('Фармоиш №' + oNum + ' расмикунонӣ шуд! 🎉', 'ok');
+    // Сначала слушаем, потом грузим заказы и переходим
+    listenLive(ref.id);
+    await loadOrders();
+    goPage('status');
   } catch (e) {
     toast('Хато: ' + e.message, 'err');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Қабул'; }
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Фармоиш расмикунонӣ';
   }
 };
 
-// ═══════════════════════════════════════════════════════════
-//  3-ҚАДАМАИ ФЛОУ РАСОНИДАН  —  Нав, пурра, касбӣ
-// ═══════════════════════════════════════════════════════════
-
-// Степ-бар наверху (горизонтальный, с номерами)
-function renderStepBar(currentStep) {
-  const steps = [
-    { n: 1, label: 'Ба дӯкон',  sub: 'Қадами 1',
-      icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>` },
-    { n: 2, label: 'Ҷамъоварӣ', sub: 'Қадами 2',
-      icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>` },
-    { n: 3, label: 'Расонидан', sub: 'Қадами 3',
-      icon: `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>` },
-  ];
-  return `<div class="fsb">
-    ${steps.map((s, i) => {
-      const state = s.n < currentStep ? 'done' : s.n === currentStep ? 'cur' : '';
-      const isDone = s.n < currentStep;
-      return `<div class="fsb-step ${state}">
-        <div class="fsb-dot">
-          ${isDone
-            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`
-            : s.icon}
-        </div>
-        <div class="fsb-step-inner">
-          <div class="fsb-lbl">${s.label}</div>
-          <div class="fsb-lbl-sub">${isDone ? 'Тайёр ✓' : s.sub}</div>
-        </div>
-        ${i < steps.length - 1 ? '<div class="fsb-line"></div>' : ''}
-      </div>`;
-    }).join('')}
-  </div>`;
+// ─── Заказы ──────────────────────────────────────────────────
+async function loadOrders() {
+  try {
+    const q = query(collection(db, 'orders'), where('clientId', '==', CU.uid), orderBy('createdAt', 'desc'));
+    const s = await getDocs(q);
+    orders = s.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (e) {
+    // Если индекс не создан — пробуем без orderBy, сортируем на клиенте
+    try {
+      const q2 = query(collection(db, 'orders'), where('clientId', '==', CU.uid));
+      const s2 = await getDocs(q2);
+      orders = s2.docs.map(d => ({ id: d.id, ...d.data() }));
+      orders.sort((a, b) => {
+        const ta = a.createdAt?.toMillis?.() ?? 0;
+        const tb = b.createdAt?.toMillis?.() ?? 0;
+        return tb - ta;
+      });
+    } catch { orders = []; }
+  }
+  const live = orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
+  if (live) { activeOid = live.id; if (!unsubLive) listenLive(live.id); }
+  renderOrders(); renderOrdersBadge(); renderLiveBanner();
+  // Статистика профиля
+  const tot   = orders.length;
+  const spent = orders.filter(o => o.status !== 'cancelled').reduce((s, o) => s + (o.total || 0), 0);
+  const po = document.getElementById('ps-orders'); if (po) po.textContent = tot;
+  const ps = document.getElementById('ps-spent');  if (ps) ps.textContent = spent;
 }
 
-// Мини-шапка заказа (компактная, всегда видна)
-function renderOrderBadge(o) {
-  const pay = o.paymentMethod === 'cash' ? 'Нақдӣ' : o.paymentMethod === 'card' ? 'Корт' : 'Онлайн';
-  return `<div class="ob">
-    <div class="ob-left">
-      <div class="ob-num">#${o.orderNumber || o.id.slice(-6).toUpperCase()}</div>
-      <div class="ob-client">${o.clientName || 'Муштарӣ'}</div>
-    </div>
-    <div class="ob-chips">
-      <span class="ob-chip pay">${pay}</span>
-      <span class="ob-chip total">${o.total || 0} см</span>
-      <span class="ob-chip earn">+${EPD} см</span>
-    </div>
-  </div>`;
+window.setOTab = function (tab, btn) {
+  currentOTab = tab;
+  document.querySelectorAll('.otab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderOrders();
+};
+
+function filterOrders() {
+  if (currentOTab === 'all')       return orders;
+  if (currentOTab === 'active')    return orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
+  if (currentOTab === 'delivered') return orders.filter(o => o.status === 'delivered');
+  if (currentOTab === 'cancelled') return orders.filter(o => o.status === 'cancelled');
+  return orders;
 }
 
-// ─── ШАГ 1: Ба дӯкон ──────────────────────────────────────
-function renderStep1(o) {
-  const arrived = o.status === 'courier_arrived';
-  const itemCount = (o.items || []).reduce((s, i) => s + i.quantity, 0);
-  const totalItems = (o.items || []).length;
+function renderOrders() {
+  const el   = document.getElementById('orders-list');
+  if (!el) return;
+  const list = filterOrders();
+  if (!list.length) {
+    el.innerHTML = '<div class="empty"><span class="empty-ico">📦</span><div class="empty-t">Фармоишҳо нест</div></div>';
+    return;
+  }
+  el.innerHTML = list.map(o => {
+    const c     = SC[o.status] || '#888';
+    const l     = SL[o.status] || o.status;
+    const num   = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+    const items = (o.items || []).map(i => `${i.name} ×${i.quantity}`).join(', ');
+    const date  = fmtDate(o.createdAt);
+    const isActive = ['pending','confirmed','preparing','delivering'].includes(o.status);
+    return `<div class="oc st-${o.status}" onclick="openOrderModal('${o.id}')" style="cursor:pointer">
+      <div class="oc-head">
+        <div class="oc-num">Фармоиш ${num}</div>
+        <div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div>
+      </div>
+      <div class="oc-items">${items}</div>
+      <div class="oc-footer">
+        <div><div class="oc-total">${o.total} см</div><div class="oc-meta">${date} · ${o.address || ''}</div></div>
+        <div class="oc-actions" onclick="event.stopPropagation()">
+          ${isActive ? `<div style="width:7px;height:7px;border-radius:50%;background:${c};animation:rpulse 2s infinite;flex-shrink:0"></div>` : ''}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--tx3)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
-  // Превью товаров — иконки
-  const itemPreviews = (o.items || []).slice(0, 4).map(item => {
-    const img = item.imageUrl
-      ? `<img src="${item.imageUrl}" alt="${item.name}" style="width:100%;height:100%;object-fit:cover;border-radius:9px">`
-      : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:1.4rem;opacity:.6">🛍️</div>`;
-    return `<div class="s1-thumb">${img}</div>`;
+// ─── Модалка детали заказа + чек ──────────────────────────────
+window.openOrderModal = function (oid) {
+  const o = orders.find(x => x.id === oid);
+  if (!o) return;
+  const num   = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+  const c     = SC[o.status] || '#888';
+  const l     = SL[o.status] || o.status;
+  const si    = STEPS.indexOf(o.status);
+  const pay   = o.paymentMethod === 'cash' ? 'Нақдӣ 💵' : o.paymentMethod === 'card' ? 'Корт 💳' : 'Онлайн 📱';
+  const date  = fmtDate(o.createdAt);
+  const isActive = ['pending','confirmed','preparing','delivering'].includes(o.status);
+  const sub   = (o.items||[]).reduce((s,i) => s + i.price*i.quantity, 0);
+  const delivery = o.total - sub;
+
+  // Timeline вертикальный
+  const stepIcons = ['⏳','✅','👨‍🍳','🛵','🎉'];
+  const stepSubs  = ['Фармоиш қабул шуд', 'Тасдиқ аз тарафи мо', 'Ошпазон омода мекунад', 'Курьер дар роҳ аст', 'Расонида шуд'];
+  const timeline  = STEPS.map((s, i) => {
+    const cls = i < si ? 'done' : i === si ? 'cur' : '';
+    return `<div class="o-track-step ${cls}">
+      <div class="o-track-dot">${i <= si ? stepIcons[i] : ''}</div>
+      <div class="o-track-info">
+        <div class="o-track-title">${SL[s]}</div>
+        <div class="o-track-sub">${i === si ? stepSubs[i] : i < si ? 'Анҷом ёфт ✓' : stepSubs[i]}</div>
+      </div>
+    </div>`;
   }).join('');
 
-  return `
-  <div class="flow-panel">
-    ${renderStepBar(1)}
-    ${renderOrderBadge(o)}
+  // QR — кодируем короткий ID заказа
+  const qrData  = encodeURIComponent(`GAL-${o.id}`);
+  const qrUrl   = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${qrData}&color=1a9e4a&bgcolor=ffffff&margin=8&format=png`;
 
-    <!-- Hero блок -->
-    <div class="s1-hero ${arrived ? 'arrived' : ''}">
-      <div class="s1-hero-icon">${arrived ? '✅' : '🏪'}</div>
-      <div class="s1-hero-body">
-        <div class="s1-hero-title">${arrived ? 'Расидед ба дӯкон!' : 'Ба дӯкон равед'}</div>
-        <div class="s1-hero-sub">${arrived ? 'Молҳоро ҷамъ кардан мумкин аст' : 'Galelium · Дӯкони марказӣ'}</div>
-      </div>
-    </div>
+  // Чек
+  const itemsHtml = (o.items||[]).map(i =>
+    `<div class="receipt-row">
+      <span class="receipt-row-name">${i.name}</span>
+      <span class="receipt-row-qty">×${i.quantity}</span>
+      <span class="receipt-row-price">${i.price * i.quantity} см</span>
+    </div>`
+  ).join('');
 
-    <!-- Карточка магазина -->
-    <div class="info-card">
-      <div class="info-card-icon" style="background:var(--accd);color:var(--acc2)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      </div>
-      <div class="info-card-body">
-        <div class="info-card-lbl">Дӯкон</div>
-        <div class="info-card-val">Galelium · Дӯкони марказӣ</div>
-        <div class="info-card-sub">Суроғи дӯкон дар харита</div>
-      </div>
-      <div class="info-card-arrow">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </div>
-    </div>
+  document.getElementById('order-modal-title').textContent = `Фармоиш ${num}`;
+  document.getElementById('order-modal-body').innerHTML = `
 
-    <!-- Превью заказа -->
-    <div class="s1-order-preview">
-      <div class="s1-op-header">
-        <div class="s1-op-title">Таркиби фармоиш</div>
-        <div class="s1-op-count">${itemCount} мол · ${totalItems} навъ</div>
+    ${isActive ? `<div style="margin:14px 0 4px">
+      <button onclick="closeOrderModal();goPage('status')" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:14px;color:#fff;font-family:var(--fd);font-weight:900;font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px var(--acc-shadow);transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        Ҳолати фармоишро бинед
+      </button>
+    </div>` : ''}
+
+    <div class="receipt">
+      <!-- шапка чека -->
+      <div class="receipt-top">
+        <div class="receipt-brand">Galelium Delivery</div>
+        <div class="receipt-order-num">Фармоиш ${num}</div>
+        <div class="receipt-status-row">
+          <div class="receipt-status-dot" style="background:${c}"></div>
+          <div class="receipt-status-lbl">${l}</div>
+        </div>
       </div>
-      <div class="s1-thumbs">${itemPreviews}${(o.items || []).length > 4 ? `<div class="s1-thumb-more">+${(o.items||[]).length - 4}</div>` : ''}</div>
-      <div class="s1-items-list">
-        ${(o.items || []).map(item => `
-          <div class="s1-item">
-            <div class="s1-item-img">
-              ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}">` : '<span style="font-size:1.1rem">🛍️</span>'}
-            </div>
-            <div class="s1-item-info">
-              <div class="s1-item-name">${item.name}</div>
-              <div class="s1-item-price">${item.price} см · ${item.quantity} дона</div>
-            </div>
-            <div class="s1-item-qty">×${item.quantity}</div>
+      <!-- волна -->
+      <svg class="receipt-wave" viewBox="0 0 600 20" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none"><path d="M0 0 Q150 20 300 10 Q450 0 600 15 L600 0 Z" fill="#fff"/></svg>
+
+      <div class="receipt-body">
+        <!-- товары -->
+        <div class="receipt-section">
+          <div class="receipt-section-title">Таркиб</div>
+          ${itemsHtml}
+        </div>
+
+        <div class="receipt-divider"></div>
+
+        <!-- итоги -->
+        <div class="receipt-section" style="margin-bottom:8px">
+          <div class="receipt-total-row">
+            <span class="receipt-total-label">Маҳсулот</span>
+            <span class="receipt-total-val">${sub} см</span>
           </div>
-        `).join('')}
+          <div class="receipt-total-row">
+            <span class="receipt-total-label">Расонидан</span>
+            <span class="receipt-total-val">${delivery > 0 ? delivery : DFEE} см</span>
+          </div>
+          <div class="receipt-divider" style="margin:8px 0"></div>
+          <div class="receipt-total-row big">
+            <span class="receipt-total-label">Ҷамъ</span>
+            <span class="receipt-total-val">${o.total} см</span>
+          </div>
+        </div>
+
+        <!-- инфо -->
+        <div class="receipt-section">
+          <div class="receipt-section-title">Маълумот</div>
+          <div class="receipt-info-grid">
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Суроғ</div>
+              <div class="receipt-info-val">${o.address || '—'}</div>
+              ${o.lat && o.lng ? `<a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" style="font-size:.56rem;color:var(--acc);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:3px;margin-top:4px">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Дар харита кушоед
+              </a>` : ''}
+            </div>
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Пардохт</div>
+              <div class="receipt-info-val">${pay}</div>
+            </div>
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Курьер</div>
+              <div class="receipt-info-val">${o.courierName || 'Таъин мешавад…'}</div>
+            </div>
+            <div class="receipt-info-item">
+              <div class="receipt-info-label">Вақт</div>
+              <div class="receipt-info-val">${date}</div>
+            </div>
+          </div>
+          ${o.comment ? `<div class="receipt-info-item" style="margin-top:10px">
+            <div class="receipt-info-label">Изоҳ</div>
+            <div class="receipt-info-val">${o.comment}</div>
+          </div>` : ''}
+        </div>
+
+        <!-- QR -->
+        <div class="receipt-qr-wrap">
+          <div class="receipt-qr">
+            <img src="${qrUrl}" alt="QR" loading="lazy">
+          </div>
+          <div class="receipt-qr-hint">Рамзи фармоиш · GAL-${o.id.slice(-8).toUpperCase()}</div>
+        </div>
+      </div>
+
+      <div class="receipt-footer">
+        <div class="receipt-footer-brand">Galelium Delivery</div>
+        <div class="receipt-footer-ts">${date}</div>
       </div>
     </div>
 
-    <!-- Кнопки -->
-    <div class="flow-actions">
-      ${arrived
-        ? `<button class="btn-flow-next" onclick="advance('${o.id}','collecting')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-            Ба ҷамъоварӣ гузаред
-          </button>`
-        : `<button class="btn-flow-primary" onclick="advance('${o.id}','courier_arrived')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            Расидам ба дӯкон
-          </button>`
-      }
-    </div>
-  </div>`;
+    ${['pending','confirmed'].includes(o.status) ? `
+    <div style="margin-top:4px;margin-bottom:8px">
+      <button class="btn-sm danger" style="width:100%;padding:10px;font-size:.64rem" onclick="cancelO('${o.id}');closeOrderModal()">Фармоишро бекор кунед</button>
+    </div>` : ''}
+  `;
+
+  document.getElementById('order-modal-bg').classList.add('open');
+  // Если заказ активный — начинаем слушать
+  if (isActive && activeOid !== o.id) {
+    activeOid = o.id;
+    listenLive(o.id);
+  }
+};
+
+window.closeOrderModal = function (e) {
+  if (e && e.target !== document.getElementById('order-modal-bg')) return;
+  document.getElementById('order-modal-bg').classList.remove('open');
+};
+
+
+function renderOrdersBadge() {
+  const act = orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status)).length;
+  ['orders-nb', 'mob-ord-b'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.style.display = act > 0 ? '' : 'none'; b.textContent = act; }
+  });
 }
 
-// ─── ШАГ 2: Ҷамъоварӣ + Сканери штрих-код ───────────────
-// Состояние сканера
-let scannerActive    = false;    // открыт ли оверлей сканера
-let scannerItemKey   = null;     // ключ текущего элемента (idx-q)
-let scannerItemName  = '';       // название товара для UI
-let scannerExpected  = null;     // ожидаемый штрихкод из Firestore
-let scannerOid       = null;     // id заказа
-let barcodeStream    = null;     // MediaStream камеры
-let barcodeDetector  = null;     // BarcodeDetector API
-let barcodeRAF       = null;     // requestAnimationFrame handle
+window.cancelO = async function (id) {
+  if (!confirm('Фармоишро бекор кунем?')) return;
+  try {
+    await updateDoc(doc(db, 'orders', id), { status: 'cancelled', updatedAt: serverTimestamp() });
+    toast('Фармоиш бекор шуд', 'ok');
+    await loadOrders();
+  } catch { toast('Хато', 'err'); }
+};
 
-function renderStep2(o) {
-  const items   = o.items || [];
-  const all     = items.reduce((s, i) => s + i.quantity, 0);
-  const done    = checkedItems.size;
-  const pct     = all > 0 ? Math.round(done / all * 100) : 0;
-  const allDone = done >= all;
+window.trackO = function (id) {
+  activeOid = id;
+  goPage('status');
+  renderStatusPage();
+};
 
-  let itemBlocks = '';
-  items.forEach((item, idx) => {
-    for (let q = 0; q < item.quantity; q++) {
-      const key = `${idx}-${q}`;
-      const chk = checkedItems.has(key);
-      const imgHtml = item.imageUrl
-        ? `<img src="${item.imageUrl}" alt="${item.name}">`
-        : `<div class="ci-no-img">🛍️</div>`;
-      const hasBarcode = !!item.barcode;
-      itemBlocks += `
-        <div class="ci-block ${chk ? 'checked' : ''}" onclick="${chk ? '' : `openScanner('${key}','${o.id}',${idx})`}">
-          <div class="ci-block-img ${chk ? 'done' : ''}">${imgHtml}
-            ${chk ? `<div class="ci-block-overlay"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>` : ''}
-          </div>
-          <div class="ci-block-body">
-            <div class="ci-block-name">${item.name}</div>
-            <div class="ci-block-meta">
-              <span class="ci-block-price">${item.price} см</span>
-              ${item.quantity > 1 ? `<span class="ci-block-badge">${q + 1} / ${item.quantity}</span>` : ''}
-              ${hasBarcode ? `<span class="ci-block-barcode-chip">
-                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                  <rect x="2" y="4" width="3" height="16" rx="1"/><rect x="7" y="4" width="1.5" height="16" rx=".5"/>
-                  <rect x="10" y="4" width="3" height="16" rx="1"/><rect x="15" y="4" width="1.5" height="16" rx=".5"/>
-                  <rect x="18" y="4" width="3" height="16" rx="1"/>
-                </svg>
-                Штрих-код
-              </span>` : `<span class="ci-block-nobc-chip">Без штрих-кода</span>`}
-            </div>
-          </div>
-          <div class="ci-block-check ${chk ? 'on' : ''}">
-            ${chk
-              ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>`
-              : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="2" y="4" width="3" height="16" rx="1"/><rect x="7" y="4" width="1.5" height="16" rx=".5"/>
-                  <rect x="10" y="4" width="3" height="16" rx="1"/><rect x="15" y="4" width="1.5" height="16" rx=".5"/>
-                  <rect x="18" y="4" width="3" height="16" rx="1"/>
-                </svg>`
-            }
-          </div>
-        </div>`;
+// ─── Realtime слушатель активного заказа ─────────────────────
+function listenLive(oid) {
+  if (unsubLive) { unsubLive(); unsubLive = null; }
+  unsubLive = onSnapshot(doc(db, 'orders', oid), snap => {
+    if (!snap.exists()) return;
+    const o   = { id: snap.id, ...snap.data() };
+    const idx = orders.findIndex(x => x.id === oid);
+    if (idx >= 0) orders[idx] = o; else orders.unshift(o);
+    // Обновляем activeOid чтобы страница статуса показывала правильный заказ
+    if (activeOid === oid || !activeOid) activeOid = oid;
+    renderOrders(); renderOrdersBadge(); renderLiveBanner();
+    if (document.getElementById('page-status')?.classList.contains('active')) renderStatusPage();
+    // Обновить открытую модалку если она показывает этот заказ
+    const modalBg = document.getElementById('order-modal-bg');
+    if (modalBg?.classList.contains('open')) {
+      const title = document.getElementById('order-modal-title')?.textContent || '';
+      const num   = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+      if (title.includes(num.replace('#',''))) openOrderModal(oid);
+    }
+    if (['delivered', 'cancelled'].includes(o.status)) {
+      if (unsubLive) { unsubLive(); unsubLive = null; }
+      if (o.status === 'delivered') toast('🎉 Фармоиш расонида шуд!', 'ok');
     }
   });
-
-  return `
-  <div class="flow-panel">
-    ${renderStepBar(2)}
-    ${renderOrderBadge(o)}
-
-    <div class="collect-hero">
-      <div class="collect-hero-left">
-      <div class="collect-hero-nums">
-        <span class="collect-done">${done}</span>
-        <span class="collect-sep">/</span>
-        <span class="collect-total">${all}</span>
-      </div>
-      <div class="collect-hero-lbl">мол гирифта шуд</div>
-      </div>
-      <div class="collect-ring-wrap">
-        <svg class="collect-ring" viewBox="0 0 64 64">
-          <circle cx="32" cy="32" r="28" fill="none" stroke="var(--s3)" stroke-width="5"/>
-          <circle cx="32" cy="32" r="28" fill="none" stroke="var(--acc)" stroke-width="5"
-            stroke-dasharray="${2 * Math.PI * 28}" stroke-dashoffset="${2 * Math.PI * 28 * (1 - pct / 100)}"
-            stroke-linecap="round" transform="rotate(-90 32 32)"
-            style="transition:stroke-dashoffset .5s var(--ease)"/>
-        </svg>
-        <div class="collect-ring-pct">${pct}%</div>
-      </div>
-    </div>
-
-    <div class="ci-hint">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <rect x="2" y="4" width="3" height="16" rx="1"/><rect x="7" y="4" width="1.5" height="16" rx=".5"/>
-        <rect x="10" y="4" width="3" height="16" rx="1"/><rect x="15" y="4" width="1.5" height="16" rx=".5"/>
-        <rect x="18" y="4" width="3" height="16" rx="1"/>
-      </svg>
-      Ҳар молро пахш кунед — штрих-кодро скан мекунед
-    </div>
-
-    <div class="ci-list">${itemBlocks}</div>
-
-    <div class="flow-actions">
-      ${allDone
-        ? `<button class="btn-flow-next" onclick="confirmCollect('${o.id}')">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            Ҳама гирифтам — тасдиқ
-          </button>`
-        : `<div class="collect-remain">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-            Ҳоло <strong>${all - done}</strong> мол монд — штрих-кодро скан кунед
-          </div>`
-      }
-    </div>
-  </div>`;
 }
 
-// ─── СКАНЕР ШТРИХ-КОДА ───────────────────────────────────
-
-// Открыть оверлей сканера для конкретного товара
-window.openScanner = async function (key, oid, itemIdx) {
-  if (scannerActive) return;
-  const o = activeOrder;
-  if (!o) return;
-  const item = (o.items || [])[itemIdx];
-  if (!item) return;
-
-  scannerItemKey  = key;
-  scannerOid      = oid;
-  scannerItemName = item.name;
-
-  // Если у товара нет barcode в данных заказа — берём из Firestore products
-  if (item.barcode) {
-    scannerExpected = item.barcode;
-  } else if (item.productId) {
-    try {
-      const snap = await getDoc(doc(db, COL.PRODUCTS || 'products', item.productId));
-      scannerExpected = snap.exists() ? (snap.data().barcode || null) : null;
-    } catch { scannerExpected = null; }
-  } else {
-    scannerExpected = null;
-  }
-
-  showScannerOverlay();
-};
-
-function showScannerOverlay() {
-  const ov = document.getElementById('scanner-overlay');
-  if (!ov) return;
-
-  const hasBC = !!scannerExpected;
-
-  ov.innerHTML = `
-    <div class="sc-panel">
-      <div class="sc-header">
-        <div class="sc-title">Скан штрих-код</div>
-        <button class="sc-close" onclick="closeScanner()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-      <div class="sc-item-info">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-        ${scannerItemName}
-        ${!hasBC ? '<span class="sc-nobc-warn">⚠️ Штрих-код нест — вуруди дастӣ</span>' : ''}
-      </div>
-
-      ${hasBC ? `
-      <!-- Видео-камера -->
-      <div class="sc-cam-wrap" id="sc-cam-wrap">
-        <video id="sc-video" autoplay playsinline muted></video>
-        <div class="sc-laser"></div>
-        <div class="sc-corners">
-          <div class="sc-corner tl"></div><div class="sc-corner tr"></div>
-          <div class="sc-corner bl"></div><div class="sc-corner br"></div>
-        </div>
-        <div class="sc-cam-hint" id="sc-cam-hint">Камераро ба штрих-код нишон диҳед</div>
-      </div>
-      <div class="sc-result" id="sc-result"></div>
-      <div class="sc-divider"><span>ё</span></div>
-      ` : ''}
-
-      <!-- Ручной ввод -->
-      <div class="sc-manual">
-        <div class="sc-manual-lbl">Дастӣ ворид кунед</div>
-        <div class="sc-manual-row">
-          <input class="sc-manual-inp" id="sc-manual-inp" type="text"
-            inputmode="numeric" pattern="[0-9]*"
-            placeholder="${hasBC ? 'Рақами штрих-код' : 'Ҳар рақам ё код'}"
-            onkeydown="if(event.key==='Enter')submitManual()"
-          />
-          <button class="sc-manual-btn" onclick="submitManual()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          </button>
-        </div>
-      </div>
-
-      ${!hasBC ? `
-      <button class="btn-flow-next" style="margin-top:4px" onclick="confirmItemNoBarcode()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-        Дастӣ тасдиқ — штрих-код нест
-      </button>
-      ` : ''}
-    </div>`;
-
-  ov.classList.add('open');
-  scannerActive = true;
-
-  if (hasBC) startCamera();
-  setTimeout(() => document.getElementById('sc-manual-inp')?.focus(), 300);
+// ─── Live-баннер на главной ───────────────────────────────────
+function renderLiveBanner() {
+  const wrap = document.getElementById('live-wrap');
+  if (!wrap) return;
+  const live = orders.find(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status));
+  if (!live) { wrap.innerHTML = ''; return; }
+  const num = live.orderNumber ? '#' + live.orderNumber : '#' + live.id.slice(-6);
+  wrap.innerHTML = `<div class="live-banner" onclick="trackO('${live.id}')"><div class="live-pulse"></div><div class="live-info"><div class="live-lbl">Фармоиши фаъол</div><div class="live-txt">Фармоиш ${num} · ${SL[live.status]} · ${live.total} см</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>`;
 }
 
-// Запуск камеры с BarcodeDetector API
-async function startCamera() {
-  if (!('BarcodeDetector' in window)) {
-    showScanResult('warn', '⚠️ Камераи браузер BarcodeDetector дастгирӣ намекунад. Дастӣ ворид кунед.');
-    return;
-  }
-  try {
-    barcodeStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    });
-    const video = document.getElementById('sc-video');
-    if (!video) return;
-    video.srcObject = barcodeStream;
-    await video.play();
-
-    barcodeDetector = new BarcodeDetector({
-      formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code', 'data_matrix']
-    });
-    detectLoop(video);
-  } catch (e) {
-    showScanResult('warn', '⚠️ Камера дастрас нест: ' + e.message);
-  }
-}
-
-let lastDetected = null;
-let lastDetectedTime = 0;
-
-function detectLoop(video) {
-  if (!scannerActive || !barcodeDetector) return;
-  barcodeRAF = requestAnimationFrame(async () => {
-    try {
-      const barcodes = await barcodeDetector.detect(video);
-      if (barcodes.length > 0) {
-        const now = Date.now();
-        const code = barcodes[0].rawValue;
-        // Дебаунс — один и тот же код не обрабатываем чаще раза в 2с
-        if (code !== lastDetected || now - lastDetectedTime > 2000) {
-          lastDetected     = code;
-          lastDetectedTime = now;
-          handleScannedCode(code);
-          return; // Пауза, дадим UI обновиться
-        }
-      }
-    } catch {}
-    detectLoop(video);
-  });
-}
-
-function handleScannedCode(code) {
-  const hint = document.getElementById('sc-cam-hint');
-  if (hint) hint.textContent = `Скан: ${code}`;
-  validateBarcode(code);
-}
-
-// Ручной ввод
-window.submitManual = function () {
-  const inp = document.getElementById('sc-manual-inp');
-  const val = inp?.value.trim();
-  if (!val) { inp?.focus(); return; }
-  validateBarcode(val);
-};
-
-// Товар без штрихкода — подтвердить вручную
-window.confirmItemNoBarcode = function () {
-  markItemDone();
-};
-
-// Валидация кода
-function validateBarcode(code) {
-  if (!scannerExpected) {
-    // Нет штрихкода в базе — любой ввод подтверждает
-    showScanResult('ok', `✅ Тасдиқ шуд!`, true);
-    return;
-  }
-  const clean   = code.trim().replace(/\s/g, '');
-  const expected = String(scannerExpected).trim().replace(/\s/g, '');
-  if (clean === expected) {
-    showScanResult('ok', `✅ Дуруст! ${scannerItemName}`, true);
-  } else {
-    showScanResult('err', `❌ Хато! Интизор: ${expected} · Гирифт: ${clean}`);
-    playErrorBeep();
-    // Через 2с продолжаем сканировать
-    setTimeout(() => {
-      const res = document.getElementById('sc-result');
-      if (res) res.innerHTML = '';
-      const video = document.getElementById('sc-video');
-      if (video && scannerActive) detectLoop(video);
-    }, 2000);
-  }
-}
-
-function showScanResult(type, msg, autoClose = false) {
-  // Стоп камеры пока показываем результат
-  if (barcodeRAF) { cancelAnimationFrame(barcodeRAF); barcodeRAF = null; }
-  const res = document.getElementById('sc-result');
-  if (res) {
-    res.className = `sc-result show ${type}`;
-    res.textContent = msg;
-  }
-  if (autoClose) {
-    playSuccessBeep();
-    setTimeout(() => {
-      markItemDone();
-    }, 700);
-  }
-}
-
-// Успешно отсканировано — отметить товар
-function markItemDone() {
-  const key = scannerItemKey;
-  closeScanner();
-  if (key) {
-    checkedItems.add(key);
-    renderActive();
-    // Виброотклик
-    if (navigator.vibrate) navigator.vibrate([50, 30, 80]);
-  }
-}
-
-// Закрыть сканер
-window.closeScanner = function () {
-  scannerActive = false;
-  if (barcodeRAF)   { cancelAnimationFrame(barcodeRAF); barcodeRAF = null; }
-  if (barcodeStream) { barcodeStream.getTracks().forEach(t => t.stop()); barcodeStream = null; }
-  barcodeDetector = null;
-  lastDetected    = null;
-  const ov = document.getElementById('scanner-overlay');
-  if (ov) ov.classList.remove('open');
-};
-
-// Звуки обратной связи
-function playSuccessBeep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.connect(g); g.connect(ctx.destination);
-    o.frequency.value = 1200; o.type = 'sine';
-    g.gain.setValueAtTime(.15, ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + .25);
-    o.start(); o.stop(ctx.currentTime + .25);
-  } catch {}
-}
-
-function playErrorBeep() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [0, 150].forEach(d => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.connect(g); g.connect(ctx.destination);
-      o.frequency.value = 300; o.type = 'sawtooth';
-      g.gain.setValueAtTime(.12, ctx.currentTime + d / 1000);
-      g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + d / 1000 + .18);
-      o.start(ctx.currentTime + d / 1000);
-      o.stop(ctx.currentTime + d / 1000 + .18);
-    });
-  } catch {}
-}
-
-// ─── ШАГ 3: Расонидан ────────────────────────────────────
-function renderStep3(o) {
-  const atClient = o.status === 'client_arrived';
-  const itemCount = (o.items || []).reduce((s, i) => s + i.quantity, 0);
-  const pay = o.paymentMethod === 'cash' ? '💵 Нақдӣ ба курьер' : o.paymentMethod === 'card' ? '💳 Корт' : '🌐 Онлайн';
-
-  return `
-  <div class="flow-panel">
-    ${renderStepBar(3)}
-    ${renderOrderBadge(o)}
-
-    <!-- Hero -->
-    <div class="s1-hero ${atClient ? 'arrived' : ''}" style="${atClient ? '' : 'background:linear-gradient(135deg,rgba(59,130,246,.12),rgba(59,130,246,.04));border-color:rgba(59,130,246,.25)'}">
-      <div class="s1-hero-icon">${atClient ? '🎉' : '🛵'}</div>
-      <div class="s1-hero-body">
-        <div class="s1-hero-title" style="${atClient ? '' : 'color:#93c5fd'}">${atClient ? 'Расидед ба муштарӣ!' : 'Дар роҳ ба муштарӣ'}</div>
-        <div class="s1-hero-sub">${atClient ? 'Фармоишро супоред ва тасдиқ кунед' : 'Ба суроғ зер равед'}</div>
-      </div>
-    </div>
-
-    <!-- Адрес клиента -->
-    <div class="info-card">
-      <div class="info-card-icon" style="background:rgba(59,130,246,.12);color:#60a5fa">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-      </div>
-      <div class="info-card-body">
-        <div class="info-card-lbl">Суроғи муштарӣ</div>
-        <div class="info-card-val">${o.address || '—'}</div>
-        ${o.comment ? `<div class="info-card-sub">💬 ${o.comment}</div>` : ''}
-      </div>
-      <div class="info-card-arrow">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-      </div>
-    </div>
-
-    <!-- Карточка оплаты -->
-    <div class="info-card">
-      <div class="info-card-icon" style="background:var(--amberd);color:var(--amber)">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="1"/><path d="M2 10h20"/></svg>
-      </div>
-      <div class="info-card-body">
-        <div class="info-card-lbl">Пардохт</div>
-        <div class="info-card-val">${pay}</div>
-        <div class="info-card-sub">Маблағи фармоиш: ${o.total || 0} см</div>
-      </div>
-    </div>
-
-    <!-- Итог товаров -->
-    <div class="s3-items">
-      <div class="s3-items-header">
-        <span class="s3-items-title">Таркиби фармоиш</span>
-        <span class="s3-items-count">${itemCount} мол</span>
-      </div>
-      ${(o.items || []).map(item => `
-        <div class="s3-item">
-          <div class="s3-item-img">
-            ${item.imageUrl ? `<img src="${item.imageUrl}" alt="${item.name}">` : '<span style="font-size:1rem">🛍️</span>'}
-          </div>
-          <div class="s3-item-name">${item.name}</div>
-          <div class="s3-item-right">
-            <span class="s3-item-qty">×${item.quantity}</span>
-            <span class="s3-item-price">${item.price * item.quantity} см</span>
-          </div>
-        </div>
-      `).join('')}
-      <div class="s3-total-row">
-        <span>Ҷамъи шумо</span>
-        <span class="s3-total-earn">+${EPD} см</span>
-      </div>
-    </div>
-
-    <!-- Кнопки -->
-    <div class="flow-actions">
-      ${atClient
-        ? `<div style="background:linear-gradient(135deg,rgba(26,158,74,.08),rgba(34,197,94,.04));border:2px solid rgba(26,158,74,.22);border-radius:18px;padding:20px;margin-bottom:12px">
-            <div style="font-size:.55rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:12px;text-align:center">Рамзи тасдиқ аз муштарӣ</div>
-            <div style="display:flex;gap:8px;align-items:center">
-              <input id="confirm-code-inp" type="number" maxlength="4" placeholder="0000"
-                style="flex:1;font-family:var(--fd);font-weight:900;font-size:2rem;text-align:center;letter-spacing:.2em;background:var(--s1);border:2px solid var(--b1);border-radius:14px;color:var(--tx);padding:12px 8px;outline:none;appearance:textfield;-moz-appearance:textfield;width:100%;box-sizing:border-box"
-                oninput="this.value=this.value.slice(0,4)"
-                onfocus="this.style.borderColor='var(--acc)'"
-                onblur="this.style.borderColor='var(--b1)'"/>
-            </div>
-            <div style="font-size:.62rem;color:var(--tx3);margin-top:10px;text-align:center">Муштарӣ рамзи 4-рақамро мегӯяд</div>
-          </div>
-          <button class="btn-flow-final" onclick="deliverOrder('${o.id}')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
-            Тасдиқ ва анҷом додан 🎉
-          </button>`
-        : `<button class="btn-flow-primary" onclick="advance('${o.id}','client_arrived')" style="background:linear-gradient(135deg,#3b82f6,#60a5fa);box-shadow:0 4px 16px rgba(59,130,246,.3)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            Расидам ба муштарӣ
-          </button>`
-      }
-    </div>
-  </div>`;
-}
-
-// ─── Рендер активного заказа ─────────────────────────────
-function renderActive() {
-  const el = document.getElementById('active-content');
+// ─── Страница статуса заказа ──────────────────────────────────
+function renderStatusPage() {
+  const el = document.getElementById('status-content');
   if (!el) return;
-  if (!activeOrder) {
-    el.innerHTML = `<div class="empty"><div class="empty-ico">🛵</div><div class="empty-t">Фармоиши фаъол нест</div><div class="empty-s">Аз рӯйхат фармоиш қабул кунед</div></div>`;
+  let o = null;
+  if (activeOid) o = orders.find(x => x.id === activeOid);
+  if (!o) o = orders.find(x => ['pending', 'confirmed', 'preparing', 'delivering'].includes(x.status));
+  if (!o && orders.length > 0) o = orders[0];
+  if (!o) {
+    el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';
     return;
   }
-  const o = activeOrder;
-  let stepHtml = '';
-  if (['courier_heading', 'courier_arrived'].includes(o.status)) stepHtml = renderStep1(o);
-  else if (['collecting'].includes(o.status))                    stepHtml = renderStep2(o);
-  else if (['delivering', 'client_arrived'].includes(o.status))  stepHtml = renderStep3(o);
-  el.innerHTML = stepHtml || `<div class="empty"><div class="empty-ico">⏳</div><div class="empty-t">Интизор…</div></div>`;
-}
-
-// toggleItem удалён — заменён на openScanner + validateBarcode
-
-// ─── Подтвердить сборку → переход к доставке ─────────────────
-window.confirmCollect = async function (oid) {
-  try {
-    await updateDoc(doc(db, COL.ORDERS, oid), { status: 'delivering', updatedAt: serverTimestamp() });
-    toast('Молҳо ҷамъ шуданд! Ба роҳ бароед 🛵', 'ok');
-  } catch { toast('Хато', 'err'); }
-};
-
-// ─── Завершить доставку ───────────────────────────────────────
-window.deliverOrder = async function (oid) {
-  // Проверяем код подтверждения
-  const inp = document.getElementById('confirm-code-inp');
-  const enteredCode = inp ? inp.value.trim() : '';
-  if (!enteredCode || enteredCode.length !== 4) {
-    toast('Рамзи 4-рақамро ворид кунед', 'err');
-    if (inp) { inp.style.borderColor = '#ef4444'; setTimeout(() => inp.style.borderColor = 'var(--b1)', 1500); }
-    return;
-  }
-  if (activeOrder && activeOrder.confirmCode && enteredCode !== activeOrder.confirmCode) {
-    toast('Рамз нодуруст аст! Аз муштарӣ пурсед 🔐', 'err');
-    if (inp) { inp.style.borderColor = '#ef4444'; inp.value = ''; setTimeout(() => inp.style.borderColor = 'var(--b1)', 1500); }
-    return;
-  }
-  try {
-    await updateDoc(doc(db, COL.ORDERS, oid), { status: 'delivered', updatedAt: serverTimestamp() });
-    // Сбрасываем кэш истории чтобы при переходе она перезагрузилась
-    historyOrders = [];
-    await setDoc(doc(db, COL.COURIERS, CU.uid), {
-      currentOrderId:  null,
-      isActive:        false,
-      totalDeliveries: (CD?.totalDeliveries || 0) + 1,
-      earnings:        (CD?.earnings || 0) + EPD,
-      updatedAt:       serverTimestamp(),
-    }, { merge: true });
-    CD = { ...CD, currentOrderId: null, isActive: false, totalDeliveries: (CD?.totalDeliveries || 0) + 1, earnings: (CD?.earnings || 0) + EPD };
-    todayDeliveries++;
-    todayEarnings += EPD;
-    checkedItems = new Set();
-    const dt = document.getElementById('d-today');  if (dt) dt.textContent = todayDeliveries;
-    const dT = document.getElementById('d-total');  if (dT) dT.textContent = CD.totalDeliveries;
-    const pt = document.getElementById('ps-total'); if (pt) pt.textContent = CD.totalDeliveries;
-    const pe = document.getElementById('ps-earn');  if (pe) pe.textContent = CD.earnings + ' см';
-    updateEarnUI();
-    toast('🎉 Расонида шуд! +' + EPD + ' см', 'ok');
-    goPage('dashboard');
-    loadHistory();
-  } catch { toast('Хато', 'err'); }
-};
-
-// ─── Продвинуть статус ───────────────────────────────────────
-window.advance = async function (oid, ns) {
-  try {
-    await updateDoc(doc(db, COL.ORDERS, oid), { status: ns, updatedAt: serverTimestamp() });
-    toast(SL[ns] ? SL[ns] + ' ✓' : 'Навсозӣ шуд', 'ok');
-  } catch { toast('Хато', 'err'); }
-};
-
-// ─── Дашборд: баннер активного заказа ────────────────────────
-function renderDashActive() {
-  const w = document.getElementById('dash-active-wrap');
-  if (!w) return;
-  if (!activeOrder) { w.innerHTML = ''; return; }
-  const o = activeOrder;
-  const si = statusToStep(o.status);
-  const icon = TRACK_STEPS[si]?.icon || '📦';
-  w.innerHTML = `<div class="active-banner" onclick="goPage('active')">
-    <div class="ab-pulse"></div>
-    <div class="ab-body">
-      <div class="ab-lbl">Ҳоло дар кор</div>
-      <div class="ab-txt">${icon} #${o.orderNumber || o.id.slice(-6).toUpperCase()} · ${SL[o.status]} · ${o.address || ''}</div>
-    </div>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-  </div>`;
-}
-
-// ─── История ─────────────────────────────────────────────────
-async function loadHistory() {
-  const el = document.getElementById('history-list');
-  if (!el) return;
-  el.innerHTML = '<div class="pload"><div class="spin"></div> Боргузорӣ…</div>';
-  try {
-    // Только where без orderBy — не требует composite index в Firestore
-    const q  = query(collection(db, COL.ORDERS), where('courierId', '==', CU.uid), where('status', '==', 'delivered'));
-    const sn = await getDocs(q);
-    historyOrders = sn.docs.map(d => ({ id: d.id, ...d.data() }));
-    // Сортируем на стороне клиента по дате убывания
-    historyOrders.sort((a, b) => {
-      const ta = a.updatedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
-      const tb = b.updatedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
-      return tb - ta;
-    });
-    // Берём последние 50
-    historyOrders = historyOrders.slice(0, 50);
-    renderHistory();
-  } catch (e) {
-    console.error('loadHistory error:', e);
-    el.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><div class="empty-t">Расониданиҳо нест</div><div class="empty-s">Хатои боргузорӣ: ${e.message}</div></div>`;
-  }
-}
-
-function renderHistory() {
-  const el = document.getElementById('history-list');
-  if (!el) return;
-  const te = historyOrders.length * EPD;
-  const ht = document.getElementById('hist-total-txt');
-  if (ht) ht.textContent = historyOrders.length + ' расониш · ' + te + ' см';
-  if (!historyOrders.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-ico">📭</div><div class="empty-t">Расониданиҳо нест</div><div class="empty-s">Расониданиҳои иҷрошуда ин ҷо намоён мешаванд</div></div>`;
-    return;
-  }
-  el.innerHTML = historyOrders.map(o => {
-    const _dt = o.updatedAt?.toDate?.() || o.createdAt?.toDate?.();
-    const d = _dt ? _dt.toLocaleDateString('ru-RU', { day: '2-digit', month: 'short' }) + ', ' + _dt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '—';
-    const cnt = (o.items || []).reduce((s, i) => s + i.quantity, 0);
-    return `<div class="hc">
-      <div class="hc-ico"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
-      <div class="hc-body">
-        <div class="hc-top"><span class="hc-num">#${o.orderNumber || o.id.slice(-6).toUpperCase()}</span><span class="hc-earn">+${EPD} см</span></div>
-        <div class="hc-addr">${o.address || '—'}</div>
-        <div class="hc-meta">${d} · ${cnt} мол</div>
-      </div>
-    </div>`;
+  const c   = SC[o.status] || '#888';
+  const l   = SL[o.status] || o.status;
+  const si  = STEPS.indexOf(o.status);
+  const num = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
+  const date = fmtDate(o.createdAt);
+  const pay  = o.paymentMethod === 'cash' ? 'Нақдӣ' : o.paymentMethod === 'card' ? 'Корт' : 'Онлайн';
+  const icons = ['⏳', '✅', '👨‍🍳', '🛵', '🎉'];
+  const steps = STEPS.map((s, i) => {
+    const cls = i < si ? 'done' : i === si ? 'cur' : '';
+    return `<div class="track-step ${cls}"><div class="track-dot">${i <= si ? icons[i] : ''}</div><div class="track-lbl">${SL[s]}</div></div>`;
   }).join('');
+  el.innerHTML = `<div class="oc st-${o.status}" style="padding:18px 20px">
+    <div class="oc-head"><div class="oc-num">Фармоиш ${num}</div><div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div></div>
+    <div class="track">${steps}</div><div class="divider"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:.76rem">
+      <div><div class="sh-tag" style="margin-bottom:3px">Суроғ</div><div style="color:var(--tx)">${o.address || '—'}</div></div>
+      <div><div class="sh-tag" style="margin-bottom:3px">Пардохт</div><div style="color:var(--tx)">${pay}</div></div>
+      <div><div class="sh-tag" style="margin-bottom:3px">Курьер</div><div style="color:var(--tx)">${o.courierName || 'Таъин мешавад…'}</div></div>
+      <div><div class="sh-tag" style="margin-bottom:3px">Вақт</div><div style="color:var(--tx)">${date}</div></div>
+    </div><div class="divider"></div>
+    <div class="sh-tag" style="margin-bottom:10px">Таркиб</div>
+    ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.75rem"><span style="color:var(--tx)">${i.name}<span style="color:var(--tx3)"> ×${i.quantity}</span></span><span style="font-weight:600;color:var(--tx2)">${i.price * i.quantity} см</span></div>`).join('')}
+    <div style="display:flex;justify-content:space-between;font-size:.72rem;padding:8px 0;color:var(--tx3)"><span>Расонидан</span><span>${DFEE} см</span></div>
+    <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--b0)"><span style="font-weight:700;font-size:.8rem">Ҷамъ</span><span style="font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)">${o.total} см</span></div>
+    ${['pending', 'confirmed'].includes(o.status) ? `<div style="margin-top:14px"><button class="btn-sm danger" onclick="cancelO('${o.id}')">Фармоишро бекор кунед</button></div>` : ''}
+
+    ${o.status === 'client_arrived' && o.confirmCode ? `
+    <div style="margin-top:18px;background:linear-gradient(135deg,rgba(26,158,74,.08),rgba(34,197,94,.04));border:2px solid rgba(26,158,74,.25);border-radius:18px;padding:20px;text-align:center">
+      <div style="font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin-bottom:8px">Рамзи тасдиқ барои курьер</div>
+      <div style="font-family:var(--fd);font-weight:900;font-size:3.2rem;color:var(--tx);letter-spacing:.18em;line-height:1">${o.confirmCode}</div>
+      <div style="font-size:.65rem;color:var(--tx3);margin-top:10px;line-height:1.5">Ин рамзро ба курьер гӯед<br>то фармоиш тасдиқ шавад</div>
+    </div>` : ''}
+
+    ${['delivering'].includes(o.status) && o.confirmCode ? `
+    <div style="margin-top:18px;background:linear-gradient(135deg,rgba(59,130,246,.07),rgba(59,130,246,.03));border:1.5px solid rgba(59,130,246,.2);border-radius:18px;padding:18px;text-align:center">
+      <div style="font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#60a5fa;margin-bottom:8px">Рамзи тасдиқ</div>
+      <div style="font-family:var(--fd);font-weight:900;font-size:3.2rem;color:var(--tx);letter-spacing:.18em;line-height:1;filter:blur(6px);user-select:none" id="code-blur">${o.confirmCode}</div>
+      <button onclick="document.getElementById('code-blur').style.filter='none';this.style.display='none'" style="margin-top:10px;background:none;border:1px solid rgba(59,130,246,.3);border-radius:8px;color:#60a5fa;font-size:.62rem;font-weight:600;padding:5px 14px;cursor:pointer;font-family:var(--fs)">Нишон додан</button>
+      <div style="font-size:.62rem;color:var(--tx3);margin-top:8px">Ҳангоми расидани курьер ин рамзро нишон диҳед</div>
+    </div>` : ''}
+  </div>`;
 }
 
-// ─── Профил ──────────────────────────────────────────────────
+// ─── Профиль ─────────────────────────────────────────────────
 function renderProfile() {
   const name = UD?.displayName || CU.displayName || '';
   const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
-  const pn  = document.getElementById('p-name');     if (pn)  pn.textContent  = name || 'Курьер';
-  const pe  = document.getElementById('p-email');    if (pe)  pe.textContent  = CU.email || '';
-  const av  = document.getElementById('p-av');       if (av)  av.innerHTML    = UD?.avatarUrl ? `<img src="${UD.avatarUrl}" alt="">` : init;
-  const pv  = document.getElementById('p-veh');      if (pv)  pv.textContent  = VEHICLE_TYPES[CD?.vehicle || 'foot'] || '—';
-  const pfn = document.getElementById('pf-name');    if (pfn) pfn.value       = name;
-  const pfe = document.getElementById('pf-email');   if (pfe) pfe.value       = CU.email || '';
-  const pfp = document.getElementById('pf-phone');   if (pfp) pfp.value       = UD?.phone || '';
-  const pfv = document.getElementById('pf-vehicle'); if (pfv) pfv.value       = CD?.vehicle || 'foot';
-  const pst = document.getElementById('ps-total');   if (pst) pst.textContent = CD?.totalDeliveries || 0;
-  const pse = document.getElementById('ps-earn');    if (pse) pse.textContent = (CD?.earnings || 0) + ' см';
-  const psr = document.getElementById('ps-rating');  if (psr) psr.textContent = CD?.rating ? CD.rating.toFixed(1) : '—';
+  const pn = document.getElementById('p-name');  if (pn) pn.textContent = name || 'Бе ном';
+  const pe = document.getElementById('p-email'); if (pe) pe.textContent = CU.email || '';
+  const av = document.getElementById('p-av');    if (av) av.innerHTML = UD?.avatarUrl ? `<img src="${UD.avatarUrl}" alt="">` : init;
+  const pfn = document.getElementById('pf-name');  if (pfn) pfn.value = name;
+  const pfe = document.getElementById('pf-email'); if (pfe) pfe.value = CU.email || '';
+  const pfp = document.getElementById('pf-phone'); if (pfp) pfp.value = UD?.phone || '';
+  const pfa = document.getElementById('pf-addr');  if (pfa) pfa.value = UD?.address || '';
+  // Показываем координаты если есть
+  const pfc = document.getElementById('pf-addr-coords');
+  if (pfc) {
+    if (UD?.lat && UD?.lng) {
+      pfc.textContent = `📍 ${parseFloat(UD.lat).toFixed(5)}, ${parseFloat(UD.lng).toFixed(5)}`;
+      pfc.style.display = 'block';
+    } else {
+      pfc.style.display = 'none';
+    }
+  }
 }
 
 window.saveProfile = async function () {
-  const name    = document.getElementById('pf-name').value.trim();
-  const phone   = document.getElementById('pf-phone').value.trim();
-  const vehicle = document.getElementById('pf-vehicle').value;
+  const name  = document.getElementById('pf-name').value.trim();
+  const phone = document.getElementById('pf-phone').value.trim();
+  const addr  = document.getElementById('pf-addr').value.trim();
   try {
-    await setDoc(doc(db, COL.USERS,    CU.uid), { displayName: name, phone, updatedAt: serverTimestamp() }, { merge: true });
-    await setDoc(doc(db, COL.COURIERS, CU.uid), { displayName: name, phone, vehicle, updatedAt: serverTimestamp() }, { merge: true });
-    UD = { ...UD, displayName: name, phone };
-    CD = { ...CD, vehicle };
-    renderSB(); renderProfile();
-    toast('Сақл шуд ✓', 'ok');
+    // Если адрес вручную изменён — сбрасываем координаты (они уже не актуальны)
+    const addrChanged = addr !== UD?.address;
+    const saveData = {
+      displayName: name,
+      phone,
+      address: addr,
+      updatedAt: serverTimestamp(),
+    };
+    // Сохраняем координаты только если адрес не менялся вручную
+    if (!addrChanged && UD?.lat && UD?.lng) {
+      saveData.lat = UD.lat;
+      saveData.lng = UD.lng;
+    } else if (addrChanged) {
+      // При ручном вводе адреса пробуем геокодировать через Nominatim
+      saveData.lat = null;
+      saveData.lng = null;
+    }
+    await setDoc(doc(db, 'users', CU.uid), saveData, { merge: true });
+    UD = { ...UD, ...saveData };
+    renderSB(); renderProfile(); setAddr();
+    toast('Профил сақл шуд', 'ok');
   } catch { toast('Хато', 'err'); }
 };
 
@@ -1179,14 +1626,14 @@ window.uploadAvUI = async function (inp) {
   const f = inp.files[0];
   if (!f) return;
   if (f.size > 2 * 1024 * 1024) { toast('Файл хеле калон аст', 'err'); return; }
-  toast('Бор мекунем…');
+  toast('Боргузорӣ…');
   try {
     const sr  = sRef(storage, `avatars/${CU.uid}`);
     await uploadBytes(sr, f);
     const url = await getDownloadURL(sr);
-    await setDoc(doc(db, COL.USERS, CU.uid), { avatarUrl: url, updatedAt: serverTimestamp() }, { merge: true });
+    await setDoc(doc(db, 'users', CU.uid), { avatarUrl: url, updatedAt: serverTimestamp() }, { merge: true });
     UD.avatarUrl = url;
     renderSB(); renderProfile();
-    toast('Акс навсозӣ шуд ✓', 'ok');
+    toast('Акс навсозӣ шуд', 'ok');
   } catch { toast('Хатои боргузорӣ', 'err'); }
 };
