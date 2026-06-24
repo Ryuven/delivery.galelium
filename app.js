@@ -111,7 +111,8 @@ function fmtDate(ts) {
 
 let _orderSeq = Date.now() % 100000;
 function nextOrderNum() {
-  return (++_orderSeq).toString().padStart(5, '0');
+  // 8-значный рандомный номер: от 10000000 до 99999999
+  return Math.floor(10000000 + Math.random() * 90000000).toString();
 }
 
 // ─── Toast-уведомления ────────────────────────────────────────
