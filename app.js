@@ -162,29 +162,43 @@ window.goLogin = function () {
   location.href = 'login.html';
 };
 
-// ─── Гостевой баннер ─────────────────────────────────────────
+// ─── Гостевой баннер: скрываем обычный topbar, показываем гостевой ──
 function renderGuestBanner() {
-  const existing = document.getElementById('guest-banner');
-  if (existing) return;
-  const banner = document.createElement('div');
-  banner.id = 'guest-banner';
-  banner.innerHTML = `
-    <div style="background:linear-gradient(135deg,rgba(26,158,74,.08),rgba(34,197,94,.04));border-bottom:1.5px solid rgba(26,158,74,.18);padding:10px 20px;display:flex;align-items:center;gap:12px;font-size:.76rem;color:var(--tx2);flex-wrap:wrap">
-      <div style="flex:1;min-width:0;display:flex;align-items:center;gap:9px">
-        <div style="width:7px;height:7px;border-radius:50%;background:var(--acc);flex-shrink:0;animation:lp 2s ease-in-out infinite"></div>
-        <span><strong style="color:var(--tx)">Гостевой режим</strong> — Шумо метавонед маҳсулотро бинед. Барои фармоиш ворид шавед.</span>
-      </div>
-      <button onclick="goLogin()" style="background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:8px;color:#fff;font-size:.68rem;font-family:var(--fs);font-weight:700;padding:7px 16px;cursor:pointer;white-space:nowrap;box-shadow:0 2px 10px rgba(26,158,74,.3);transition:opacity .15s" onmouseover="this.style.opacity='.85'" onmouseout="this.style.opacity='1'">
-        Ворид шавед →
-      </button>
-    </div>`;
-  const main = document.querySelector('.main');
-  const topbar = document.querySelector('.topbar');
-  main.insertBefore(banner, topbar.nextSibling);
+  // Переключаем топбары
+  const topbar = document.getElementById('topbar');
+  const guestTopbar = document.getElementById('guest-topbar');
+  if (topbar) topbar.style.display = 'none';
+  if (guestTopbar) guestTopbar.classList.add('visible');
+
+  // Сайдбар и мобильная навигация: прячем корзину/заказы, показываем Вход
+  document.querySelectorAll('.guest-hidden').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.guest-only').forEach(el => el.style.display = 'flex');
+
+  // Адрес в сайдбаре — блокируем клик
+  const addrRow = document.getElementById('sb-addr-row');
+  if (addrRow) {
+    addrRow.style.pointerEvents = 'none';
+    addrRow.style.opacity = '.45';
+  }
 }
 
 function removeGuestBanner() {
-  document.getElementById('guest-banner')?.remove();
+  // Возвращаем обычный топбар
+  const topbar = document.getElementById('topbar');
+  const guestTopbar = document.getElementById('guest-topbar');
+  if (topbar) topbar.style.display = '';
+  if (guestTopbar) guestTopbar.classList.remove('visible');
+
+  // Восстанавливаем навигацию
+  document.querySelectorAll('.guest-hidden').forEach(el => el.style.display = '');
+  document.querySelectorAll('.guest-only').forEach(el => el.style.display = 'none');
+
+  // Адрес — разблокируем
+  const addrRow = document.getElementById('sb-addr-row');
+  if (addrRow) {
+    addrRow.style.pointerEvents = '';
+    addrRow.style.opacity = '';
+  }
 }
 
 // ─── Гостевой профиль ────────────────────────────────────────
@@ -305,8 +319,12 @@ function renderSB() {
 // ─── Навигация ────────────────────────────────────────────────
 window.goPage = function (page) {
   // Гость может смотреть только публичные страницы
-  if (GUEST && (page === 'orders' || page === 'status')) {
-    toast('Барои дидани фармоишҳо ворид шавед', 'info');
+  if (GUEST && (page === 'orders' || page === 'status' || page === 'cart')) {
+    if (page === 'cart') {
+      toast('Барои истифода аз сабад ворид шавед', 'info');
+    } else {
+      toast('Барои дидани фармоишҳо ворид шавед', 'info');
+    }
     return;
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
@@ -922,6 +940,7 @@ let _sugTimer   = null;
 const DUSHANBE = [38.5598, 68.7733];
 
 window.openAddrModal = function (ctx) {
+  if (!requireAuth('Барои нишон додани суроғ ворид шавед')) return;
   _addrCtx = ctx || 'cart';
   document.getElementById('addr-modal-bg').classList.add('open');
   document.body.style.overflow = 'hidden';
