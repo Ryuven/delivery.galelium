@@ -766,21 +766,14 @@ function setAddr() {
   }
 }
 
-// ─── Адрес + Карта ───────────────────────────────────────────
-let _addrMap       = null;   // google.maps.Map
-let _addrMarker    = null;   // позиция маркера (центр карты)
-let _addrGeocoder  = null;
-let _addrAC        = null;   // Autocomplete service
-let _addrCtx       = null;   // 'cart' | 'profile'
-let _addrPicked    = null;   // { address, lat, lng }
-let _addrGeoTimer  = null;
+// ─── Адрес + Карта (Leaflet + OpenStreetMap) ─────────────────
+let _map        = null;
+let _addrCtx    = null;
+let _addrPicked = null;
+let _geoTimer   = null;
+let _sugTimer   = null;
 
-const DUSHANBE = { lat: 38.5598, lng: 68.7733 }; // центр Душанбе
-
-function waitGmap(fn) {
-  if (window._gmapReady) fn();
-  else window._gmapCbs.push(fn);
-}
+const DUSHANBE = [38.5598, 68.7733];
 
 window.openAddrModal = function (ctx) {
   _addrCtx = ctx || 'cart';
@@ -795,124 +788,109 @@ window.openAddrModal = function (ctx) {
   if (curAddr) {
     document.getElementById('addr-search-inp').value = curAddr;
     document.getElementById('addr-search-clear').classList.add('show');
-    document.getElementById('addr-bottom-val').textContent = curAddr;
-    document.getElementById('addr-bottom-val').classList.remove('placeholder');
+    const bv = document.getElementById('addr-bottom-val');
+    bv.textContent = curAddr;
+    bv.classList.remove('placeholder');
     document.getElementById('addr-confirm-btn').disabled = false;
-    _addrPicked = { address: curAddr, lat: curLat || DUSHANBE.lat, lng: curLng || DUSHANBE.lng };
+    _addrPicked = { address: curAddr, lat: curLat || DUSHANBE[0], lng: curLng || DUSHANBE[1] };
   }
 
-  waitGmap(() => initAddrMap(curLat, curLng));
+  // Инициализируем карту после открытия (нужен visible DOM)
+  requestAnimationFrame(() => setTimeout(() => initLeaflet(curLat, curLng), 120));
 };
 
-function initAddrMap(lat, lng) {
-  if (_addrMap) {
-    // Уже инициализирована — просто перецентрируем
-    const center = (lat && lng) ? { lat, lng } : DUSHANBE;
-    _addrMap.setCenter(center);
-    _addrMap.setZoom(lat ? 16 : 13);
+function initLeaflet(lat, lng) {
+  const center = (lat && lng) ? [lat, lng] : DUSHANBE;
+  const zoom   = (lat && lng) ? 16 : 13;
+
+  if (_map) {
+    _map.setView(center, zoom);
     return;
   }
 
-  const center = (lat && lng) ? { lat, lng } : DUSHANBE;
-
-  _addrMap = new google.maps.Map(document.getElementById('addr-map'), {
-    center,
-    zoom: lat ? 16 : 13,
-    disableDefaultUI: true,
-    gestureHandling: 'greedy',
-    styles: getMapStyle(),
+  _map = L.map('addr-map', {
+    center, zoom,
+    zoomControl: false,
+    attributionControl: false,
   });
 
-  _addrGeocoder = new google.maps.Geocoder();
-  _addrAC       = new google.maps.places.AutocompleteService();
+  // Тайлы — можно выбрать любой стиль
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+  }).addTo(_map);
 
-  // Слушаем перемещение карты
-  _addrMap.addListener('dragstart', () => {
+  // Кнопка зума своя (в нужном углу)
+  L.control.zoom({ position: 'bottomright' }).addTo(_map);
+
+  // При движении карты — reverse geocode по центру
+  _map.on('movestart', () => {
     document.getElementById('addr-map-pin').classList.add('dragging');
-    document.getElementById('addr-map-pulse').style.display = 'none';
+    document.getElementById('addr-map-pulse').style.opacity = '0';
   });
 
-  _addrMap.addListener('dragend', () => {
+  _map.on('moveend', () => {
     document.getElementById('addr-map-pin').classList.remove('dragging');
-    const c = _addrMap.getCenter();
-    reverseGeocode(c.lat(), c.lng());
+    const c = _map.getCenter();
+    reverseGeocode(c.lat, c.lng);
   });
-
-  _addrMap.addListener('idle', () => {
-    document.getElementById('addr-map-pin').classList.remove('dragging');
-  });
-
-  // Первичный геокодинг если есть координаты
-  if (lat && lng) {
-    document.getElementById('addr-map-pulse').style.display = 'block';
-  }
 }
 
 function reverseGeocode(lat, lng) {
-  if (!_addrGeocoder) return;
-  clearTimeout(_addrGeoTimer);
-  _addrGeoTimer = setTimeout(() => {
-    _addrGeocoder.geocode({ location: { lat, lng }, language: 'ru' }, (res, status) => {
-      if (status === 'OK' && res[0]) {
-        const addr = res[0].formatted_address
-          .replace(', Таджикистан', '')
-          .replace(', Tajikistan', '');
-        _addrPicked = { address: addr, lat, lng };
-        document.getElementById('addr-bottom-val').textContent = addr;
-        document.getElementById('addr-bottom-val').classList.remove('placeholder');
-        document.getElementById('addr-search-inp').value = addr;
-        document.getElementById('addr-search-clear').classList.add('show');
-        document.getElementById('addr-confirm-btn').disabled = false;
-        document.getElementById('addr-map-pulse').style.display = 'block';
-      }
-    });
-  }, 400);
+  clearTimeout(_geoTimer);
+  _geoTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ru`,
+        { headers: { 'Accept-Language': 'ru' } }
+      );
+      const d = await r.json();
+      const a = d.address || {};
+      // Формируем красивый адрес
+      const parts = [
+        a.road || a.pedestrian || a.street || '',
+        a.house_number ? a.house_number : '',
+        a.suburb || a.neighbourhood || '',
+        a.city || a.town || a.village || 'Душанбе',
+      ].filter(Boolean);
+      const addr = parts.join(', ');
+      _addrPicked = { address: addr, lat, lng };
+      const bv = document.getElementById('addr-bottom-val');
+      if (bv) { bv.textContent = addr; bv.classList.remove('placeholder'); }
+      const si = document.getElementById('addr-search-inp');
+      if (si) si.value = addr;
+      document.getElementById('addr-search-clear')?.classList.add('show');
+      document.getElementById('addr-confirm-btn').disabled = false;
+      document.getElementById('addr-map-pulse').style.opacity = '1';
+    } catch { /* тихо */ }
+  }, 500);
 }
 
-window.goMyLocation = function () {
-  const btn = document.getElementById('addr-myloc-btn');
-  if (!navigator.geolocation) { toast('Геолокатсия дастгирӣ намешавад', 'err'); return; }
-  btn.classList.add('loading');
-  navigator.geolocation.getCurrentPosition(pos => {
-    btn.classList.remove('loading');
-    const { latitude: lat, longitude: lng } = pos.coords;
-    if (_addrMap) {
-      _addrMap.setCenter({ lat, lng });
-      _addrMap.setZoom(17);
-      reverseGeocode(lat, lng);
-    }
-  }, () => {
-    btn.classList.remove('loading');
-    toast('Мавқеъ муайян нашуд', 'err');
-  }, { timeout: 8000 });
-};
-
-let _addrSugTimer = null;
+// Поиск через Nominatim
 window.onAddrSearch = function (val) {
   document.getElementById('addr-search-clear').classList.toggle('show', val.length > 0);
-  if (!val.trim()) { hideSuggestions(); return; }
-  clearTimeout(_addrSugTimer);
-  _addrSugTimer = setTimeout(() => {
-    if (!_addrAC) return;
-    _addrAC.getPlacePredictions({
-      input: val,
-      language: 'ru',
-      componentRestrictions: { country: 'tj' },
-      location: new google.maps.LatLng(DUSHANBE.lat, DUSHANBE.lng),
-      radius: 50000,
-    }, (preds, status) => {
-      if (status !== google.maps.places.PlacesServiceStatus.OK || !preds) { hideSuggestions(); return; }
-      showSuggestions(preds);
-    });
-  }, 280);
+  hideSuggestions();
+  if (!val.trim()) return;
+  clearTimeout(_sugTimer);
+  _sugTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(val + ' Душанбе Таджикистан')}&format=json&limit=5&accept-language=ru&countrycodes=tj`,
+        { headers: { 'Accept-Language': 'ru' } }
+      );
+      const results = await r.json();
+      if (!results.length) { hideSuggestions(); return; }
+      showSuggestions(results);
+    } catch { hideSuggestions(); }
+  }, 350);
 };
 
-function showSuggestions(preds) {
+function showSuggestions(results) {
   const el = document.getElementById('addr-suggestions');
-  el.innerHTML = preds.slice(0, 5).map(p => {
-    const main = p.structured_formatting?.main_text || p.description;
-    const sec  = p.structured_formatting?.secondary_text || '';
-    return `<div class="addr-sug-item" onclick="pickSuggestion('${p.place_id}','${escHtml(main)}')">
+  el.innerHTML = results.map(p => {
+    const parts = p.display_name.split(', ');
+    const main  = parts.slice(0, 2).join(', ');
+    const sec   = parts.slice(2, 4).join(', ');
+    return `<div class="addr-sug-item" onclick="pickSuggestion(${p.lat},${p.lon},'${escHtml(main)}')">
       <div class="addr-sug-ico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
       <div><div class="addr-sug-main">${escHtml(main)}</div><div class="addr-sug-sec">${escHtml(sec)}</div></div>
     </div>`;
@@ -925,32 +903,36 @@ function hideSuggestions() {
   if (el) el.style.display = 'none';
 }
 
-window.pickSuggestion = function (placeId, name) {
+window.pickSuggestion = function (lat, lng, name) {
   hideSuggestions();
+  lat = parseFloat(lat); lng = parseFloat(lng);
   document.getElementById('addr-search-inp').value = name;
-  if (!_addrGeocoder) return;
-  _addrGeocoder.geocode({ placeId, language: 'ru' }, (res, status) => {
-    if (status === 'OK' && res[0]) {
-      const loc  = res[0].geometry.location;
-      const addr = res[0].formatted_address.replace(', Таджикистан', '').replace(', Tajikistan', '');
-      const lat  = loc.lat(), lng = loc.lng();
-      _addrPicked = { address: addr, lat, lng };
-      document.getElementById('addr-bottom-val').textContent = addr;
-      document.getElementById('addr-bottom-val').classList.remove('placeholder');
-      document.getElementById('addr-confirm-btn').disabled = false;
-      document.getElementById('addr-map-pulse').style.display = 'block';
-      if (_addrMap) {
-        _addrMap.setCenter({ lat, lng });
-        _addrMap.setZoom(17);
-      }
-    }
-  });
+  _addrPicked = { address: name, lat, lng };
+  const bv = document.getElementById('addr-bottom-val');
+  if (bv) { bv.textContent = name; bv.classList.remove('placeholder'); }
+  document.getElementById('addr-confirm-btn').disabled = false;
+  document.getElementById('addr-map-pulse').style.opacity = '1';
+  if (_map) _map.setView([lat, lng], 17);
 };
 
 window.clearAddrSearch = function () {
   document.getElementById('addr-search-inp').value = '';
   document.getElementById('addr-search-clear').classList.remove('show');
   hideSuggestions();
+};
+
+window.goMyLocation = function () {
+  const btn = document.getElementById('addr-myloc-btn');
+  if (!navigator.geolocation) { toast('Геолокатсия дастгирӣ намешавад', 'err'); return; }
+  btn.style.animation = 'spinBtn 1s linear infinite';
+  navigator.geolocation.getCurrentPosition(pos => {
+    btn.style.animation = '';
+    const { latitude: lat, longitude: lng } = pos.coords;
+    if (_map) { _map.setView([lat, lng], 17); reverseGeocode(lat, lng); }
+  }, () => {
+    btn.style.animation = '';
+    toast('Мавқеъ муайян нашуд', 'err');
+  }, { timeout: 8000 });
 };
 
 window.closeAddrModal = function () {
@@ -964,20 +946,15 @@ window.confirmAddr = function () {
   const floor = document.getElementById('addr-floor').value.trim();
   const apt   = document.getElementById('addr-apt').value.trim();
   const note  = document.getElementById('addr-note').value.trim();
+  let full    = _addrPicked.address;
+  const extra = [floor ? 'ош. ' + floor : '', apt ? 'хв. ' + apt : '', note].filter(Boolean).join(', ');
+  if (extra) full += ', ' + extra;
 
-  let full = _addrPicked.address;
-  const extras = [floor ? 'ош. ' + floor : '', apt ? 'хв. ' + apt : '', note].filter(Boolean).join(', ');
-  if (extras) full += ', ' + extras;
+  updateAddrCard(full, _addrPicked.lat, _addrPicked.lng);
 
-  // Сохраняем в hidden inputs и карточку
-  updateAddrCard('cart', full, _addrPicked.lat, _addrPicked.lng);
-
-  // Автосохраняем в профиль пользователя
   if (CU) {
     setDoc(doc(db, 'users', CU.uid), {
-      address: full,
-      lat:     _addrPicked.lat,
-      lng:     _addrPicked.lng,
+      address: full, lat: _addrPicked.lat, lng: _addrPicked.lng,
       updatedAt: serverTimestamp(),
     }, { merge: true }).then(() => {
       UD = { ...UD, address: full, lat: _addrPicked.lat, lng: _addrPicked.lng };
@@ -989,8 +966,7 @@ window.confirmAddr = function () {
   closeAddrModal();
 };
 
-function updateAddrCard(ctx, address, lat, lng) {
-  // Обновляем hidden inputs
+function updateAddrCard(address, lat, lng) {
   const ca = document.getElementById('cart-addr');
   const cl = document.getElementById('cart-lat');
   const cn = document.getElementById('cart-lng');
@@ -998,47 +974,22 @@ function updateAddrCard(ctx, address, lat, lng) {
   if (cl) cl.value = lat || '';
   if (cn) cn.value = lng || '';
 
-  // Обновляем карточку-кнопку
   const display = document.getElementById('cart-addr-display');
   const coords  = document.getElementById('cart-addr-coords');
-  if (display) {
-    display.textContent = address;
-    display.classList.remove('empty');
-  }
+  if (display) { display.textContent = address; display.classList.remove('empty'); }
   if (coords && lat && lng) {
-    coords.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    coords.textContent = `📍 ${parseFloat(lat).toFixed(5)}, ${parseFloat(lng).toFixed(5)}`;
     coords.style.display = 'block';
   }
 
-  // Обновляем сайдбар
   const adv = document.getElementById('sb-addr-val');
-  if (adv) {
-    adv.textContent = address;
-    adv.classList.remove('empty');
-  }
+  if (adv) { adv.textContent = address; adv.classList.remove('empty'); }
 }
 
 function escHtml(s) {
   return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function getMapStyle() {
-  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  if (!dark) return [];
-  return [
-    { elementType: 'geometry',        stylers: [{ color: '#1e2028' }] },
-    { elementType: 'labels.text.fill',stylers: [{ color: '#8a8fa8' }] },
-    { elementType: 'labels.text.stroke',stylers:[{ color: '#1e2028' }] },
-    { featureType: 'road',             elementType: 'geometry',stylers:[{ color: '#2c2e3a' }] },
-    { featureType: 'road.arterial',    elementType: 'geometry',stylers:[{ color: '#353645' }] },
-    { featureType: 'road.highway',     elementType: 'geometry',stylers:[{ color: '#3c3e50' }] },
-    { featureType: 'water',            elementType: 'geometry',stylers:[{ color: '#17191f' }] },
-    { featureType: 'poi',              elementType: 'geometry',stylers:[{ color: '#232530' }] },
-    { featureType: 'poi.park',         elementType: 'geometry',stylers:[{ color: '#1c2b1c' }] },
-    { featureType: 'poi',              elementType: 'labels',stylers:[{ visibility:'off' }] },
-    { featureType: 'transit',          elementType: 'labels',stylers:[{ visibility:'off' }] },
-  ];
-}
 
 // ─── Оформление заказа ────────────────────────────────────────
 window.doCheckout = async function () {
