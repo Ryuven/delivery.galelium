@@ -361,66 +361,128 @@ window.openProdModal = function (pid) {
 
 function renderProdModal(p) {
   const qty     = getCartQty(p.id);
-  const unavail = !p.available;
+  const unavail = p.available === false;
   const ic      = catIcon(p.categoryId, catName(p.categoryId));
+  const cname   = catName(p.categoryId);
 
+  // Hero
   const heroHtml = p.imageUrl
-    ? `<img src="${p.imageUrl}" alt="${p.name}" loading="lazy">`
-    : `<div class="p-modal-hero-ph">${ic.svg.replace('width="26" height="26"', 'width="80" height="80"')}</div>`;
+    ? `<img class="pm-hero-img" src="${p.imageUrl}" alt="${p.name}" loading="lazy">`
+    : `<div class="pm-hero-ph">${ic.svg.replace('width="26" height="26"', 'width="100" height="100"')}</div>`;
 
-  // Теги (категория + наличие + доп поля если есть)
-  const tags = [];
-  if (catName(p.categoryId)) tags.push(catName(p.categoryId));
-  if (p.weight)  tags.push(p.weight + ' г');
-  if (p.volume)  tags.push(p.volume + ' мл');
-  if (p.brand)   tags.push(p.brand);
-  if (p.country) tags.push(p.country);
-  const tagsHtml = tags.length
-    ? `<div class="p-modal-tags">${tags.map(t => `<span class="p-modal-tag">${t}</span>`).join('')}</div>`
+  // Магазин (если есть)
+  const store    = stores.find(s => s.id === p.storeId);
+  const storeBadge = store
+    ? `<div class="pm-badge-store">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+        ${store.name}
+       </div>`
     : '';
 
-  // Кнопка / счётчик
-  const ctrlHtml = unavail
-    ? `<button class="p-modal-add-btn" disabled>Маҳсулот нест</button>`
+  // Рейтинг (если есть поле rating в Firestore)
+  const ratingHtml = p.rating
+    ? (() => {
+        const r = Math.round(p.rating * 2) / 2;
+        const full = Math.floor(r), half = r % 1;
+        const stars = '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(5 - Math.ceil(r));
+        return `<div class="pm-rating">
+          <div class="pm-stars">${[...stars].map(s =>
+            `<span class="pm-star" style="color:${s==='☆'?'var(--b1)':'#f59e0b'}">${s==='½'?'⯨':s}</span>`
+          ).join('')}</div>
+          <span class="pm-rating-val">${p.rating.toFixed(1)}</span>
+          ${p.reviewCount ? `<span class="pm-rating-cnt">(${p.reviewCount} отзыв)</span>` : ''}
+        </div>`;
+      })()
+    : '';
+
+  // Чипсы — характеристики из Firestore
+  const chips = [];
+  if (p.weight)      chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a1 1 0 100 2 1 1 0 000-2z"/><path d="M5 21h14l-2-11H7z"/></svg>`, label: p.weight + ' г' });
+  if (p.volume)      chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2h6l1 7H8z"/><path d="M8 9a5 5 0 0010 0"/></svg>`, label: p.volume + ' мл' });
+  if (p.brand)       chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg>`, label: p.brand });
+  if (p.country)     chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M2 12h20M12 3a15 15 0 010 18M12 3a15 15 0 000 18"/></svg>`, label: p.country });
+  if (p.expiry)      chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`, label: p.expiry });
+  if (p.organic)     chips.push({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-6 8-12a8 8 0 00-16 0c0 6 8 12 8 12z"/></svg>`, label: 'Органик' });
+  if (cname && !chips.find(c => c.label === cname)) chips.unshift({ icon: `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3"/></svg>`, label: cname });
+  const chipsHtml = chips.length
+    ? `<div class="pm-chips">${chips.map(c => `<span class="pm-chip">${c.icon} ${c.label}</span>`).join('')}</div>`
+    : '';
+
+  // Пищевая ценность (если есть в Firestore)
+  const nutKeys = [
+    { k: 'calories', l: 'Ккал' },
+    { k: 'protein',  l: 'Белок' },
+    { k: 'fat',      l: 'Жир' },
+    { k: 'carbs',    l: 'Углев' },
+  ];
+  const nutItems = nutKeys.filter(n => p[n.k] != null);
+  const nutritionHtml = nutItems.length >= 2
+    ? `<div class="pm-div"></div>
+       <div style="font-size:.48rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin-bottom:10px">Пищевая ценность / 100г</div>
+       <div class="pm-nutrition">${nutItems.map(n =>
+         `<div class="pm-nut-item"><div class="pm-nut-val">${p[n.k]}</div><div class="pm-nut-lbl">${n.l}</div></div>`
+       ).join('')}</div>`
+    : '';
+
+  // Кнопки
+  const buyHtml = unavail
+    ? `<button class="pm-add-btn" disabled>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><line x1="9" y1="15" x2="15" y2="9"/></svg>
+        Мавҷуд нест
+       </button>`
     : qty > 0
-      ? `<div class="p-modal-price-row" style="flex-direction:column;align-items:stretch;gap:12px">
-           <div style="display:flex;align-items:center;justify-content:space-between">
-             <div class="p-modal-price">${p.price * qty}<span> см</span></div>
-             <div class="p-modal-qty-wrap">
-               <button class="p-modal-qty-btn" onclick="pmMinus('${p.id}')">−</button>
-               <div class="p-modal-qty-val" id="pm-qty-${p.id}">${qty}</div>
-               <button class="p-modal-qty-btn" onclick="pmPlus('${p.id}')">+</button>
-             </div>
+      ? `<div class="pm-buy-wrap">
+           <div class="pm-qty-box">
+             <button class="pm-qty-btn" onclick="pmMinus('${p.id}')">−</button>
+             <div class="pm-qty-num" id="pm-qty-${p.id}">${qty}</div>
+             <button class="pm-qty-btn" onclick="pmPlus('${p.id}')">+</button>
            </div>
-           <button class="p-modal-add-btn" onclick="closeProdModal();goPage('cart')">
-             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
-             Ба сабад гузаштан
+           <button class="pm-go-cart" onclick="closeProdModal();goPage('cart')">
+             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/></svg>
+             Ба сабад — ${p.price * qty} см
            </button>
          </div>`
-      : `<div class="p-modal-price-row">
-           <div class="p-modal-price">${p.price}<span> см</span></div>
-           <button class="p-modal-add-btn" style="width:auto;padding:12px 22px" onclick="pmAdd('${p.id}')">
-             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-             Илова
-           </button>
-         </div>`;
+      : `<button class="pm-add-btn" onclick="pmAdd('${p.id}')">
+           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+           Ба сабад илова кунед
+         </button>`;
 
   document.getElementById('prod-modal-inner').innerHTML = `
-    <div class="p-modal-hero">
+    <div class="pm-hero">
       ${heroHtml}
-      <button class="p-modal-close" onclick="closeProdModal()">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      <button class="pm-close" onclick="closeProdModal()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
-      ${unavail ? '<div class="p-modal-badge-unavail">Мавҷуд нест</div>' : ''}
+      ${unavail ? '<div class="pm-badge-unavail">Мавҷуд нест</div>' : ''}
+      ${storeBadge}
     </div>
-    <div class="p-modal-body">
-      ${tagsHtml}
-      <div>
-        <div class="p-modal-cat">${catName(p.categoryId)}</div>
-        <div class="p-modal-name">${p.name}</div>
+
+    <div class="pm-body">
+      <div class="pm-cat-line">
+        <div class="pm-cat-dot"></div>
+        <div class="pm-cat-lbl">${cname || 'Маҳсулот'}</div>
       </div>
-      ${p.description ? `<div class="p-modal-desc">${p.description}</div>` : ''}
-      ${ctrlHtml}
+
+      <div class="pm-name">${p.name}</div>
+
+      ${ratingHtml}
+
+      ${p.description ? `<div class="pm-desc">${p.description}</div>` : ''}
+
+      ${chipsHtml}
+
+      ${nutritionHtml}
+
+      <div class="pm-div"></div>
+
+      <div class="pm-buy-row">
+        <div class="pm-price-line">
+          <div class="pm-price">${p.price}</div>
+          <div class="pm-price-unit">см</div>
+          ${p.weight ? `<div class="pm-price-per">· за ${p.weight}г</div>` : ''}
+        </div>
+        ${buyHtml}
+      </div>
     </div>`;
 }
 
@@ -433,19 +495,32 @@ window.pmAdd = async function (pid) {
 
 window.pmPlus = async function (pid) {
   await addToCart(pid);
-  const p = prods.find(x => x.id === pid);
-  if (p) renderProdModal(p);
+  const p   = prods.find(x => x.id === pid);
+  const qty = getCartQty(pid);
+  const qEl = document.getElementById(`pm-qty-${pid}`);
+  if (qEl) {
+    qEl.textContent = qty;
+    const goBtn = document.querySelector('.pm-go-cart');
+    if (goBtn && p) goBtn.lastChild.textContent = ` Ба сабад — ${p.price * qty} см`;
+  } else {
+    if (p) renderProdModal(p);
+  }
 };
 
 window.pmMinus = async function (pid) {
   await pcMinus(pid);
-  const p = prods.find(x => x.id === pid);
+  const p   = prods.find(x => x.id === pid);
   const qty = getCartQty(pid);
-  if (!qty) { // если убрали последний — перерисовываем на кнопку "Илова"
+  if (!qty) {
     if (p) renderProdModal(p);
   } else {
     const qEl = document.getElementById(`pm-qty-${pid}`);
-    if (qEl) qEl.textContent = qty;
+    if (qEl) {
+      qEl.textContent = qty;
+      // обновляем цену в кнопке "Ба сабад"
+      const goBtn = document.querySelector('.pm-go-cart');
+      if (goBtn && p) goBtn.lastChild.textContent = ` Ба сабад — ${p.price * qty} см`;
+    }
   }
 };
 
