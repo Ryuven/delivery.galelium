@@ -762,13 +762,290 @@ function setAddr() {
   if (UD?.address) {
     const ca = document.getElementById('cart-addr');
     if (ca) ca.value = UD.address;
+    updateAddrCard('cart', UD.address, UD.lat, UD.lng);
   }
+}
+
+// ─── Адрес + Карта ───────────────────────────────────────────
+let _addrMap       = null;   // google.maps.Map
+let _addrMarker    = null;   // позиция маркера (центр карты)
+let _addrGeocoder  = null;
+let _addrAC        = null;   // Autocomplete service
+let _addrCtx       = null;   // 'cart' | 'profile'
+let _addrPicked    = null;   // { address, lat, lng }
+let _addrGeoTimer  = null;
+
+const DUSHANBE = { lat: 38.5598, lng: 68.7733 }; // центр Душанбе
+
+function waitGmap(fn) {
+  if (window._gmapReady) fn();
+  else window._gmapCbs.push(fn);
+}
+
+window.openAddrModal = function (ctx) {
+  _addrCtx = ctx || 'cart';
+  document.getElementById('addr-modal-bg').classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Предзаполняем текущий адрес
+  const curAddr = document.getElementById('cart-addr')?.value || UD?.address || '';
+  const curLat  = parseFloat(document.getElementById('cart-lat')?.value) || UD?.lat;
+  const curLng  = parseFloat(document.getElementById('cart-lng')?.value) || UD?.lng;
+
+  if (curAddr) {
+    document.getElementById('addr-search-inp').value = curAddr;
+    document.getElementById('addr-search-clear').classList.add('show');
+    document.getElementById('addr-bottom-val').textContent = curAddr;
+    document.getElementById('addr-bottom-val').classList.remove('placeholder');
+    document.getElementById('addr-confirm-btn').disabled = false;
+    _addrPicked = { address: curAddr, lat: curLat || DUSHANBE.lat, lng: curLng || DUSHANBE.lng };
+  }
+
+  waitGmap(() => initAddrMap(curLat, curLng));
+};
+
+function initAddrMap(lat, lng) {
+  if (_addrMap) {
+    // Уже инициализирована — просто перецентрируем
+    const center = (lat && lng) ? { lat, lng } : DUSHANBE;
+    _addrMap.setCenter(center);
+    _addrMap.setZoom(lat ? 16 : 13);
+    return;
+  }
+
+  const center = (lat && lng) ? { lat, lng } : DUSHANBE;
+
+  _addrMap = new google.maps.Map(document.getElementById('addr-map'), {
+    center,
+    zoom: lat ? 16 : 13,
+    disableDefaultUI: true,
+    gestureHandling: 'greedy',
+    styles: getMapStyle(),
+  });
+
+  _addrGeocoder = new google.maps.Geocoder();
+  _addrAC       = new google.maps.places.AutocompleteService();
+
+  // Слушаем перемещение карты
+  _addrMap.addListener('dragstart', () => {
+    document.getElementById('addr-map-pin').classList.add('dragging');
+    document.getElementById('addr-map-pulse').style.display = 'none';
+  });
+
+  _addrMap.addListener('dragend', () => {
+    document.getElementById('addr-map-pin').classList.remove('dragging');
+    const c = _addrMap.getCenter();
+    reverseGeocode(c.lat(), c.lng());
+  });
+
+  _addrMap.addListener('idle', () => {
+    document.getElementById('addr-map-pin').classList.remove('dragging');
+  });
+
+  // Первичный геокодинг если есть координаты
+  if (lat && lng) {
+    document.getElementById('addr-map-pulse').style.display = 'block';
+  }
+}
+
+function reverseGeocode(lat, lng) {
+  if (!_addrGeocoder) return;
+  clearTimeout(_addrGeoTimer);
+  _addrGeoTimer = setTimeout(() => {
+    _addrGeocoder.geocode({ location: { lat, lng }, language: 'ru' }, (res, status) => {
+      if (status === 'OK' && res[0]) {
+        const addr = res[0].formatted_address
+          .replace(', Таджикистан', '')
+          .replace(', Tajikistan', '');
+        _addrPicked = { address: addr, lat, lng };
+        document.getElementById('addr-bottom-val').textContent = addr;
+        document.getElementById('addr-bottom-val').classList.remove('placeholder');
+        document.getElementById('addr-search-inp').value = addr;
+        document.getElementById('addr-search-clear').classList.add('show');
+        document.getElementById('addr-confirm-btn').disabled = false;
+        document.getElementById('addr-map-pulse').style.display = 'block';
+      }
+    });
+  }, 400);
+}
+
+window.goMyLocation = function () {
+  const btn = document.getElementById('addr-myloc-btn');
+  if (!navigator.geolocation) { toast('Геолокатсия дастгирӣ намешавад', 'err'); return; }
+  btn.classList.add('loading');
+  navigator.geolocation.getCurrentPosition(pos => {
+    btn.classList.remove('loading');
+    const { latitude: lat, longitude: lng } = pos.coords;
+    if (_addrMap) {
+      _addrMap.setCenter({ lat, lng });
+      _addrMap.setZoom(17);
+      reverseGeocode(lat, lng);
+    }
+  }, () => {
+    btn.classList.remove('loading');
+    toast('Мавқеъ муайян нашуд', 'err');
+  }, { timeout: 8000 });
+};
+
+let _addrSugTimer = null;
+window.onAddrSearch = function (val) {
+  document.getElementById('addr-search-clear').classList.toggle('show', val.length > 0);
+  if (!val.trim()) { hideSuggestions(); return; }
+  clearTimeout(_addrSugTimer);
+  _addrSugTimer = setTimeout(() => {
+    if (!_addrAC) return;
+    _addrAC.getPlacePredictions({
+      input: val,
+      language: 'ru',
+      componentRestrictions: { country: 'tj' },
+      location: new google.maps.LatLng(DUSHANBE.lat, DUSHANBE.lng),
+      radius: 50000,
+    }, (preds, status) => {
+      if (status !== google.maps.places.PlacesServiceStatus.OK || !preds) { hideSuggestions(); return; }
+      showSuggestions(preds);
+    });
+  }, 280);
+};
+
+function showSuggestions(preds) {
+  const el = document.getElementById('addr-suggestions');
+  el.innerHTML = preds.slice(0, 5).map(p => {
+    const main = p.structured_formatting?.main_text || p.description;
+    const sec  = p.structured_formatting?.secondary_text || '';
+    return `<div class="addr-sug-item" onclick="pickSuggestion('${p.place_id}','${escHtml(main)}')">
+      <div class="addr-sug-ico"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+      <div><div class="addr-sug-main">${escHtml(main)}</div><div class="addr-sug-sec">${escHtml(sec)}</div></div>
+    </div>`;
+  }).join('');
+  el.style.display = 'block';
+}
+
+function hideSuggestions() {
+  const el = document.getElementById('addr-suggestions');
+  if (el) el.style.display = 'none';
+}
+
+window.pickSuggestion = function (placeId, name) {
+  hideSuggestions();
+  document.getElementById('addr-search-inp').value = name;
+  if (!_addrGeocoder) return;
+  _addrGeocoder.geocode({ placeId, language: 'ru' }, (res, status) => {
+    if (status === 'OK' && res[0]) {
+      const loc  = res[0].geometry.location;
+      const addr = res[0].formatted_address.replace(', Таджикистан', '').replace(', Tajikistan', '');
+      const lat  = loc.lat(), lng = loc.lng();
+      _addrPicked = { address: addr, lat, lng };
+      document.getElementById('addr-bottom-val').textContent = addr;
+      document.getElementById('addr-bottom-val').classList.remove('placeholder');
+      document.getElementById('addr-confirm-btn').disabled = false;
+      document.getElementById('addr-map-pulse').style.display = 'block';
+      if (_addrMap) {
+        _addrMap.setCenter({ lat, lng });
+        _addrMap.setZoom(17);
+      }
+    }
+  });
+};
+
+window.clearAddrSearch = function () {
+  document.getElementById('addr-search-inp').value = '';
+  document.getElementById('addr-search-clear').classList.remove('show');
+  hideSuggestions();
+};
+
+window.closeAddrModal = function () {
+  document.getElementById('addr-modal-bg').classList.remove('open');
+  document.body.style.overflow = '';
+  hideSuggestions();
+};
+
+window.confirmAddr = function () {
+  if (!_addrPicked) return;
+  const floor = document.getElementById('addr-floor').value.trim();
+  const apt   = document.getElementById('addr-apt').value.trim();
+  const note  = document.getElementById('addr-note').value.trim();
+
+  let full = _addrPicked.address;
+  const extras = [floor ? 'ош. ' + floor : '', apt ? 'хв. ' + apt : '', note].filter(Boolean).join(', ');
+  if (extras) full += ', ' + extras;
+
+  // Сохраняем в hidden inputs и карточку
+  updateAddrCard('cart', full, _addrPicked.lat, _addrPicked.lng);
+
+  // Автосохраняем в профиль пользователя
+  if (CU) {
+    setDoc(doc(db, 'users', CU.uid), {
+      address: full,
+      lat:     _addrPicked.lat,
+      lng:     _addrPicked.lng,
+      updatedAt: serverTimestamp(),
+    }, { merge: true }).then(() => {
+      UD = { ...UD, address: full, lat: _addrPicked.lat, lng: _addrPicked.lng };
+      renderSB();
+    });
+  }
+
+  toast('Суроғ тасдиқ шуд ✓', 'ok');
+  closeAddrModal();
+};
+
+function updateAddrCard(ctx, address, lat, lng) {
+  // Обновляем hidden inputs
+  const ca = document.getElementById('cart-addr');
+  const cl = document.getElementById('cart-lat');
+  const cn = document.getElementById('cart-lng');
+  if (ca) ca.value = address;
+  if (cl) cl.value = lat || '';
+  if (cn) cn.value = lng || '';
+
+  // Обновляем карточку-кнопку
+  const display = document.getElementById('cart-addr-display');
+  const coords  = document.getElementById('cart-addr-coords');
+  if (display) {
+    display.textContent = address;
+    display.classList.remove('empty');
+  }
+  if (coords && lat && lng) {
+    coords.textContent = `📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    coords.style.display = 'block';
+  }
+
+  // Обновляем сайдбар
+  const adv = document.getElementById('sb-addr-val');
+  if (adv) {
+    adv.textContent = address;
+    adv.classList.remove('empty');
+  }
+}
+
+function escHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getMapStyle() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (!dark) return [];
+  return [
+    { elementType: 'geometry',        stylers: [{ color: '#1e2028' }] },
+    { elementType: 'labels.text.fill',stylers: [{ color: '#8a8fa8' }] },
+    { elementType: 'labels.text.stroke',stylers:[{ color: '#1e2028' }] },
+    { featureType: 'road',             elementType: 'geometry',stylers:[{ color: '#2c2e3a' }] },
+    { featureType: 'road.arterial',    elementType: 'geometry',stylers:[{ color: '#353645' }] },
+    { featureType: 'road.highway',     elementType: 'geometry',stylers:[{ color: '#3c3e50' }] },
+    { featureType: 'water',            elementType: 'geometry',stylers:[{ color: '#17191f' }] },
+    { featureType: 'poi',              elementType: 'geometry',stylers:[{ color: '#232530' }] },
+    { featureType: 'poi.park',         elementType: 'geometry',stylers:[{ color: '#1c2b1c' }] },
+    { featureType: 'poi',              elementType: 'labels',stylers:[{ visibility:'off' }] },
+    { featureType: 'transit',          elementType: 'labels',stylers:[{ visibility:'off' }] },
+  ];
 }
 
 // ─── Оформление заказа ────────────────────────────────────────
 window.doCheckout = async function () {
   if (!cart.length) return;
   const addr = document.getElementById('cart-addr').value.trim();
+  const lat  = parseFloat(document.getElementById('cart-lat')?.value) || null;
+  const lng  = parseFloat(document.getElementById('cart-lng')?.value) || null;
   if (!addr) {
     toast('Суроғи расониданро нишон диҳед', 'err');
     document.getElementById('cart-addr').focus();
@@ -787,6 +1064,8 @@ window.doCheckout = async function () {
       items:         cart.map(c => ({ productId: c.productId, name: c.name, price: c.price, quantity: c.quantity })),
       total:         sub + DFEE,
       address:       addr,
+      lat:           lat,
+      lng:           lng,
       comment:       document.getElementById('cart-comment').value.trim(),
       paymentMethod: document.getElementById('cart-pay').value,
       status:        'pending',
@@ -987,6 +1266,10 @@ window.openOrderModal = function (oid) {
             <div class="receipt-info-item">
               <div class="receipt-info-label">Суроғ</div>
               <div class="receipt-info-val">${o.address || '—'}</div>
+              ${o.lat && o.lng ? `<a href="https://www.google.com/maps?q=${o.lat},${o.lng}" target="_blank" style="font-size:.56rem;color:var(--acc);text-decoration:none;font-weight:600;display:inline-flex;align-items:center;gap:3px;margin-top:4px">
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                Дар харита кушоед
+              </a>` : ''}
             </div>
             <div class="receipt-info-item">
               <div class="receipt-info-label">Пардохт</div>

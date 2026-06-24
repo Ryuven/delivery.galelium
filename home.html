@@ -486,7 +486,87 @@ select.addr-inp{cursor:pointer}
 .pm-add-btn:disabled{background:var(--s3);box-shadow:none;cursor:not-allowed;color:var(--tx3)}
 .pm-go-cart{flex:1;height:48px;background:var(--s2);border:1.5px solid var(--accg);border-radius:14px;color:var(--acc);font-family:var(--fd);font-weight:800;font-size:.82rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .14s}
 .pm-go-cart:hover{background:var(--accd)}
+/* ── ADDRESS MODAL ── */
+.addr-modal-bg{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);backdrop-filter:blur(8px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .22s}
+.addr-modal-bg.open{opacity:1;pointer-events:all}
+.addr-modal{background:var(--s1);border-radius:28px 28px 0 0;width:100%;max-width:600px;height:92vh;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .3s var(--spring);overflow:hidden}
+.addr-modal-bg.open .addr-modal{transform:translateY(0)}
+.addr-modal-drag{width:36px;height:4px;background:var(--b1);border-radius:99px;margin:10px auto 0;flex-shrink:0}
+
+/* Header */
+.addr-modal-head{padding:14px 18px 12px;flex-shrink:0;border-bottom:1px solid var(--b0)}
+.addr-modal-title{font-family:var(--fd);font-weight:900;font-size:1rem;color:var(--tx);margin-bottom:10px}
+.addr-search-wrap{position:relative}
+.addr-search-inp{width:100%;background:var(--s2);border:1.5px solid var(--b0);border-radius:12px;color:var(--tx);font-family:var(--fs);font-size:.8rem;padding:10px 42px 10px 38px;outline:none;transition:border-color .15s,box-shadow .15s;box-sizing:border-box}
+.addr-search-inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accd)}
+.addr-search-inp::placeholder{color:var(--tx3)}
+.addr-search-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--tx3);pointer-events:none}
+.addr-search-clear{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:var(--b1);border:none;width:22px;height:22px;border-radius:50%;cursor:pointer;display:none;align-items:center;justify-content:center;color:var(--tx3)}
+.addr-search-clear.show{display:flex}
+
+/* Suggestions dropdown */
+.addr-suggestions{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--s1);border:1.5px solid var(--b0);border-radius:14px;box-shadow:0 8px 32px rgba(0,0,0,.12);z-index:10;overflow:hidden;max-height:220px;overflow-y:auto}
+.addr-sug-item{display:flex;align-items:flex-start;gap:10px;padding:11px 14px;cursor:pointer;transition:background .12s;border-bottom:1px solid var(--b0)}
+.addr-sug-item:last-child{border-bottom:none}
+.addr-sug-item:hover{background:var(--s2)}
+.addr-sug-ico{width:28px;height:28px;border-radius:8px;background:var(--accd);display:flex;align-items:center;justify-content:center;color:var(--acc);flex-shrink:0;margin-top:1px}
+.addr-sug-main{font-size:.75rem;font-weight:600;color:var(--tx);line-height:1.3}
+.addr-sug-sec{font-size:.62rem;color:var(--tx3);margin-top:2px}
+
+/* Map container */
+.addr-map-wrap{flex:1;position:relative;overflow:hidden}
+#addr-map{width:100%;height:100%}
+.addr-map-pin{position:absolute;top:50%;left:50%;transform:translate(-50%,-100%);pointer-events:none;z-index:5;filter:drop-shadow(0 4px 8px rgba(0,0,0,.3));transition:transform .15s}
+.addr-map-pin.dragging{transform:translate(-50%,-110%) scale(1.1)}
+.addr-map-pin svg{display:block}
+.addr-map-pulse{position:absolute;top:50%;left:50%;width:16px;height:16px;border-radius:50%;background:rgba(26,158,74,.3);transform:translate(-50%,-50%);animation:mapPulse 1.8s ease-out infinite;pointer-events:none;z-index:4}
+@keyframes mapPulse{0%{transform:translate(-50%,-50%) scale(1);opacity:.7}100%{transform:translate(-50%,-50%) scale(3.5);opacity:0}}
+
+/* My location button */
+.addr-myloc-btn{position:absolute;right:14px;top:14px;z-index:6;width:42px;height:42px;border-radius:12px;background:var(--s1);border:1.5px solid var(--b0);cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tx2);box-shadow:0 2px 10px rgba(0,0,0,.1);transition:all .15s}
+.addr-myloc-btn:hover{border-color:var(--acc);color:var(--acc);background:var(--accd)}
+.addr-myloc-btn.loading{animation:spinBtn 1s linear infinite}
+@keyframes spinBtn{to{transform:rotate(360deg)}}
+
+/* Bottom panel */
+.addr-bottom{padding:14px 18px 20px;flex-shrink:0;background:var(--s1);border-top:1px solid var(--b0)}
+.addr-bottom-label{font-size:.46rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin-bottom:6px}
+.addr-bottom-val{font-size:.82rem;font-weight:600;color:var(--tx);margin-bottom:14px;min-height:20px;line-height:1.4}
+.addr-bottom-val.placeholder{color:var(--tx3);font-weight:400;font-style:italic}
+.addr-floor-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.addr-detail-inp{background:var(--s2);border:1.5px solid var(--b0);border-radius:10px;color:var(--tx);font-family:var(--fs);font-size:.76rem;padding:9px 12px;outline:none;transition:border-color .15s,box-shadow .15s;width:100%;box-sizing:border-box}
+.addr-detail-inp:focus{border-color:var(--acc);box-shadow:0 0 0 3px var(--accd)}
+.addr-detail-inp::placeholder{color:var(--tx3)}
+.addr-confirm-btn{width:100%;padding:14px;background:var(--accg);border:none;border-radius:14px;color:#fff;font-family:var(--fd);font-weight:900;font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px rgba(26,158,74,.3);transition:opacity .15s,transform .12s}
+.addr-confirm-btn:hover{opacity:.92;transform:translateY(-1px)}
+.addr-confirm-btn:active{transform:scale(.98)}
+.addr-confirm-btn:disabled{background:var(--s3);box-shadow:none;cursor:not-allowed;color:var(--tx3)}
+
+/* Cart address display card */
+.addr-card{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--s2);border:1.5px solid var(--b0);border-radius:14px;cursor:pointer;transition:border-color .15s,box-shadow .15s;margin-bottom:8px}
+.addr-card:hover{border-color:var(--accg);box-shadow:0 0 0 3px var(--accd)}
+.addr-card-ico{width:38px;height:38px;border-radius:10px;background:var(--accd);border:1px solid var(--accg);display:flex;align-items:center;justify-content:center;color:var(--acc);flex-shrink:0}
+.addr-card-body{flex:1;min-width:0}
+.addr-card-lbl{font-size:.46rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--tx3);margin-bottom:3px}
+.addr-card-val{font-size:.76rem;font-weight:600;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.addr-card-val.empty{color:var(--tx3);font-weight:400;font-style:italic}
+.addr-card-arrow{color:var(--tx3);flex-shrink:0}
+.addr-card-coords{font-size:.58rem;color:var(--acc);margin-top:2px;font-weight:500}
 </style>
+<!-- Google Maps + Places (ключ вставь свой) -->
+<script>
+  window.GMAP_KEY = 'YOUR_GOOGLE_MAPS_API_KEY';
+  window._gmapReady = false;
+  window._gmapCbs  = [];
+  window.initGoogleMaps = function() {
+    window._gmapReady = true;
+    window._gmapCbs.forEach(fn => fn());
+    window._gmapCbs = [];
+  };
+</script>
+<script async defer
+  src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=places&callback=initGoogleMaps&language=tg&region=TJ">
+</script>
 </head>
 <body>
 <div class="toast-wrap" id="toast-wrap"></div>
@@ -588,7 +668,22 @@ select.addr-inp{cursor:pointer}
           <div class="cs-row total"><span>Ҷамъ</span><span class="price" id="cs-total">7 см</span></div>
           <div class="cs-divider"></div>
           <label class="addr-lbl">Суроғаи расонидан</label>
-          <input class="addr-inp" type="text" id="cart-addr" placeholder="кӯчаи… д. 10, хв. 5"/>
+          <div class="addr-card" onclick="openAddrModal('cart')" id="cart-addr-card">
+            <div class="addr-card-ico">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            </div>
+            <div class="addr-card-body">
+              <div class="addr-card-lbl">Нуқтаи расонидан</div>
+              <div class="addr-card-val empty" id="cart-addr-display">Суроғро нишон диҳед →</div>
+              <div class="addr-card-coords" id="cart-addr-coords" style="display:none"></div>
+            </div>
+            <div class="addr-card-arrow">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+            </div>
+          </div>
+          <input type="hidden" id="cart-addr"/>
+          <input type="hidden" id="cart-lat"/>
+          <input type="hidden" id="cart-lng"/>
           <label class="addr-lbl">Шарҳ</label>
           <input class="addr-inp" type="text" id="cart-comment" placeholder="Дарбоз нашавад, ошёна 3…"/>
           <label class="addr-lbl">Пардохт</label>
@@ -711,6 +806,61 @@ select.addr-inp{cursor:pointer}
     <div class="p-modal-drag"></div>
     <div class="p-modal-scroll" id="prod-modal-scroll">
       <div id="prod-modal-inner"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADDRESS MAP MODAL -->
+<div class="addr-modal-bg" id="addr-modal-bg">
+  <div class="addr-modal" id="addr-modal">
+    <div class="addr-modal-drag"></div>
+
+    <div class="addr-modal-head">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="addr-modal-title">Нуқтаи расонидан</div>
+        <button style="background:var(--s2);border:1px solid var(--b0);border-radius:8px;padding:5px 11px;font-size:.68rem;font-weight:600;color:var(--tx2);cursor:pointer;font-family:var(--fs)" onclick="closeAddrModal()">Бастан</button>
+      </div>
+      <div class="addr-search-wrap" style="position:relative">
+        <div class="addr-search-ico">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </div>
+        <input class="addr-search-inp" id="addr-search-inp" type="text" placeholder="Ҷустуҷӯи суроғ…" oninput="onAddrSearch(this.value)" autocomplete="off"/>
+        <button class="addr-search-clear" id="addr-search-clear" onclick="clearAddrSearch()">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+        <div class="addr-suggestions" id="addr-suggestions" style="display:none"></div>
+      </div>
+    </div>
+
+    <div class="addr-map-wrap">
+      <div id="addr-map"></div>
+      <!-- Центральный пин -->
+      <div class="addr-map-pin" id="addr-map-pin">
+        <svg width="36" height="48" viewBox="0 0 36 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M18 0C8.06 0 0 8.06 0 18c0 13.5 18 30 18 30s18-16.5 18-30C36 8.06 27.94 0 18 0z" fill="var(--acc)"/>
+          <circle cx="18" cy="18" r="7" fill="white"/>
+          <circle cx="18" cy="18" r="4" fill="var(--acc)"/>
+        </svg>
+      </div>
+      <div class="addr-map-pulse" id="addr-map-pulse"></div>
+      <!-- Кнопка "Моё место" -->
+      <button class="addr-myloc-btn" id="addr-myloc-btn" onclick="goMyLocation()" title="Мавқеи ман">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="7" stroke-dasharray="2 2"/></svg>
+      </button>
+    </div>
+
+    <div class="addr-bottom">
+      <div class="addr-bottom-label">Суроғи интихобшуда</div>
+      <div class="addr-bottom-val placeholder" id="addr-bottom-val">Нуқтаро дар харита нишон диҳед…</div>
+      <div class="addr-floor-row">
+        <input class="addr-detail-inp" id="addr-floor" type="text" placeholder="Ошёна (масалан 3)" inputmode="numeric"/>
+        <input class="addr-detail-inp" id="addr-apt" type="text" placeholder="Хонаи (масалан 12)" inputmode="numeric"/>
+      </div>
+      <input class="addr-detail-inp" id="addr-note" type="text" placeholder="Изоҳ (дарбоз, нишона…)" style="margin-bottom:12px"/>
+      <button class="addr-confirm-btn" id="addr-confirm-btn" onclick="confirmAddr()" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Суроғро тасдиқ кунед
+      </button>
     </div>
   </div>
 </div>
