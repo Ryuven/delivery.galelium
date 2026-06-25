@@ -1344,12 +1344,12 @@ window.openOrderModal = function (oid) {
   document.getElementById('order-modal-title').textContent = `Фармоиш ${num}`;
   document.getElementById('order-modal-body').innerHTML = `
 
-    ${isActive ? `<div style="margin:14px 0 4px">
-      <button onclick="closeOrderModal();goPage('status')" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:14px;color:#fff;font-family:var(--fd);font-weight:900;font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px var(--acc-shadow);transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
+    <div style="margin:14px 0 4px">
+      <button onclick="closeOrderModal();viewOrderStatus('${o.id}')" style="width:100%;padding:13px;background:linear-gradient(135deg,var(--acc),var(--acc2));border:none;border-radius:14px;color:#fff;font-family:var(--fd);font-weight:900;font-size:.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 16px var(--acc-shadow);transition:opacity .15s" onmouseover="this.style.opacity='.88'" onmouseout="this.style.opacity='1'">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
         Ҳолати фармоишро бинед
       </button>
-    </div>` : ''}
+    </div>
 
     <div class="receipt">
       <!-- шапка чека -->
@@ -1455,6 +1455,13 @@ window.closeOrderModal = function (e) {
   document.getElementById('order-modal-bg').classList.remove('open');
 };
 
+// Открыть статус конкретного заказа
+window.viewOrderStatus = function (oid) {
+  activeOid = oid;
+  goPage('status');
+  renderStatusPage();
+};
+
 
 function renderOrdersBadge() {
   const act = orders.filter(o => ['pending', 'confirmed', 'preparing', 'delivering'].includes(o.status)).length;
@@ -1553,19 +1560,11 @@ function renderStatusPage() {
     <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--b0)"><span style="font-weight:700;font-size:.8rem">Ҷамъ</span><span style="font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)">${o.total} см</span></div>
     ${['pending', 'confirmed'].includes(o.status) ? `<div style="margin-top:14px"><button class="btn-sm danger" onclick="cancelO('${o.id}')">Фармоишро бекор кунед</button></div>` : ''}
 
-    ${o.status === 'client_arrived' && o.confirmCode ? `
-    <div style="margin-top:18px;background:linear-gradient(135deg,rgba(26,158,74,.08),rgba(34,197,94,.04));border:2px solid rgba(26,158,74,.25);border-radius:18px;padding:20px;text-align:center">
-      <div style="font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin-bottom:8px">Рамзи тасдиқ барои курьер</div>
-      <div style="font-family:var(--fd);font-weight:900;font-size:3.2rem;color:var(--tx);letter-spacing:.18em;line-height:1">${o.confirmCode}</div>
-      <div style="font-size:.65rem;color:var(--tx3);margin-top:10px;line-height:1.5">Ин рамзро ба курьер гӯед<br>то фармоиш тасдиқ шавад</div>
-    </div>` : ''}
-
-    ${['delivering'].includes(o.status) && o.confirmCode ? `
-    <div style="margin-top:18px;background:linear-gradient(135deg,rgba(59,130,246,.07),rgba(59,130,246,.03));border:1.5px solid rgba(59,130,246,.2);border-radius:18px;padding:18px;text-align:center">
-      <div style="font-size:.58rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#60a5fa;margin-bottom:8px">Рамзи тасдиқ</div>
-      <div style="font-family:var(--fd);font-weight:900;font-size:3.2rem;color:var(--tx);letter-spacing:.18em;line-height:1;filter:blur(6px);user-select:none" id="code-blur">${o.confirmCode}</div>
-      <button onclick="document.getElementById('code-blur').style.filter='none';this.style.display='none'" style="margin-top:10px;background:none;border:1px solid rgba(59,130,246,.3);border-radius:8px;color:#60a5fa;font-size:.62rem;font-weight:600;padding:5px 14px;cursor:pointer;font-family:var(--fs)">Нишон додан</button>
-      <div style="font-size:.62rem;color:var(--tx3);margin-top:8px">Ҳангоми расидани курьер ин рамзро нишон диҳед</div>
+    ${o.confirmCode && !['cancelled'].includes(o.status) ? `
+    <div style="margin-top:18px;background:${o.status === 'client_arrived' ? 'linear-gradient(135deg,rgba(26,158,74,.1),rgba(34,197,94,.05))' : 'linear-gradient(135deg,rgba(26,158,74,.06),rgba(34,197,94,.02))'};border:2px solid ${o.status === 'client_arrived' ? 'rgba(26,158,74,.35)' : 'rgba(26,158,74,.18)'};border-radius:18px;padding:20px;text-align:center">
+      <div style="font-size:.55rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin-bottom:10px">${o.status === 'client_arrived' ? '🔔 Рамзи тасдиқ барои курьер' : '🔐 Рамзи тасдиқи фармоиш'}</div>
+      <div style="font-family:var(--fd);font-weight:900;font-size:3.4rem;color:var(--tx);letter-spacing:.22em;line-height:1">${o.confirmCode}</div>
+      <div style="font-size:.62rem;color:var(--tx3);margin-top:10px;line-height:1.6">${o.status === 'client_arrived' ? 'Ин рамзро ба курьер гӯед — ӯ фармоишро тасдиқ мекунад' : o.status === 'delivered' ? 'Фармоиш расонида шуд ✓' : 'Ин рамзро ҳангоми расидани курьер ба ӯ гӯед'}</div>
     </div>` : ''}
   </div>`;
 }
