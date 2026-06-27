@@ -4,152 +4,202 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"/>
 <meta name="mobile-web-app-capable" content="yes"/>
-<title>Шартҳои расонидан | Galelium Delivery</title>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Inter:wght@400;500;600;700&display=swap"/>
 <style>
-:root{--acc:#1a9e4a;--acc2:#22c55e;--accd:rgba(26,158,74,.09);--accg:rgba(26,158,74,.2);--bg:#f3f7f4;--s1:#ffffff;--s2:#edf4ef;--s3:#e0ede3;--b0:rgba(0,0,0,.07);--b1:rgba(0,0,0,.13);--tx:#171f1a;--tx2:#3d5244;--tx3:#7a9882;--txd:#b0c4b8;--fd:'Nunito',sans-serif;--fs:'Inter',system-ui,sans-serif;--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px)}
+:root{--acc:#1a9e4a;--acc2:#22c55e;--accd:rgba(26,158,74,.09);--accg:rgba(26,158,74,.2);--bg:#f3f7f4;--s1:#ffffff;--s2:#edf4ef;--b0:rgba(0,0,0,.07);--b1:rgba(0,0,0,.13);--tx:#171f1a;--tx2:#3d5244;--tx3:#7a9882;--txd:#b0c4b8;--fd:'Nunito',sans-serif;--fs:'Inter',system-ui,sans-serif;--safe-t:env(safe-area-inset-top,0px);--safe-b:env(safe-area-inset-bottom,0px)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html{height:100%;-webkit-text-size-adjust:100%}
-body{background:var(--bg);color:var(--tx);font-family:var(--fs);min-height:100svh;display:flex;flex-direction:column;padding-top:var(--safe-t);-webkit-font-smoothing:antialiased}
+html,body{height:100%;-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--tx);font-family:var(--fs);height:100svh;max-height:100svh;overflow:hidden;display:flex;flex-direction:column;padding-top:var(--safe-t);-webkit-font-smoothing:antialiased}
 a{color:inherit;text-decoration:none}
-.topbar{flex-shrink:0;display:flex;align-items:center;gap:12px;padding:13px 20px 11px;background:var(--s1);border-bottom:1px solid var(--b0);position:sticky;top:0;z-index:50}
-.tb-back{width:34px;height:34px;border-radius:10px;background:var(--s2);border:1.5px solid var(--b0);display:flex;align-items:center;justify-content:center;color:var(--tx3);cursor:pointer;flex-shrink:0;transition:all .12s;text-decoration:none}
-.tb-back:hover{border-color:var(--accg);color:var(--acc);background:var(--accd)}
-.tb-center{flex:1;min-width:0}
-.tb-breadcrumb{font-size:.52rem;color:var(--tx3);font-weight:500;display:flex;align-items:center;gap:4px}
-.tb-breadcrumb a{color:var(--acc)}
-.tb-breadcrumb span{color:var(--txd)}
-.tb-title{font-family:var(--fd);font-weight:900;font-size:.92rem;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.tb-avatar{width:34px;height:34px;border-radius:50%;background:var(--s2);border:2px solid var(--b0);display:flex;align-items:center;justify-content:center;color:var(--tx3);flex-shrink:0;text-decoration:none;transition:all .12s}
-.tb-avatar:hover{border-color:var(--accg);color:var(--acc)}
-.content{flex:1;max-width:720px;width:100%;margin:0 auto;padding:24px 20px calc(40px + var(--safe-b))}
-.section-card{background:var(--s1);border:1.5px solid var(--b0);border-radius:18px;padding:20px 22px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04),0 4px 14px rgba(0,0,0,.03)}
-.section-card h2{font-family:var(--fd);font-weight:900;font-size:1rem;color:var(--tx);margin-bottom:12px;display:flex;align-items:center;gap:8px}
-.section-card h2 .ico{width:28px;height:28px;border-radius:8px;background:var(--accd);border:1px solid var(--accg);display:flex;align-items:center;justify-content:center;color:var(--acc);flex-shrink:0}
-.section-card p{font-size:.8rem;color:var(--tx2);line-height:1.7;margin-bottom:10px}
-.section-card p:last-child{margin-bottom:0}
-.section-card ul{padding-left:0;list-style:none;margin-bottom:10px}
-.section-card ul li{font-size:.8rem;color:var(--tx2);line-height:1.65;padding:5px 0 5px 18px;position:relative;border-bottom:1px solid var(--b0)}
-.section-card ul li:last-child{border-bottom:none}
-.section-card ul li::before{content:'';position:absolute;left:0;top:13px;width:6px;height:6px;border-radius:50%;background:var(--acc);opacity:.5}
-.info-row{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-bottom:1px solid var(--b0)}
-.info-row:last-child{border-bottom:none;padding-bottom:0}
-.info-row-ico{width:32px;height:32px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;color:var(--acc);flex-shrink:0;margin-top:1px;font-size:1rem}
-.info-row-body{}
-.info-row-title{font-family:var(--fd);font-weight:800;font-size:.8rem;color:var(--tx);margin-bottom:3px}
-.info-row-text{font-size:.73rem;color:var(--tx2);line-height:1.6}
-.zone-card{background:var(--s2);border-radius:12px;padding:13px 15px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.zone-name{font-family:var(--fd);font-weight:800;font-size:.82rem;color:var(--tx)}
-.zone-detail{text-align:right}
-.zone-price{font-family:var(--fd);font-weight:900;font-size:.88rem;color:var(--acc)}
-.zone-time{font-size:.6rem;color:var(--tx3);margin-top:2px}
-.note{background:rgba(26,158,74,.06);border-left:3px solid var(--acc);border-radius:0 10px 10px 0;padding:11px 14px;margin-top:10px}
-.note p{font-size:.74rem;color:var(--tx2);line-height:1.65;margin:0}
-.note strong{color:var(--acc);font-weight:700}
-.footer{background:var(--s1);border-top:1px solid var(--b0);padding:16px 20px calc(16px + var(--safe-b));text-align:center}
-.footer-text{font-size:.6rem;color:var(--tx3);line-height:1.6}
-.footer-links{display:flex;justify-content:center;flex-wrap:wrap;gap:6px 16px;margin-top:8px}
-.footer-links a{font-size:.6rem;color:var(--acc);font-weight:600}
+.header{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:14px 20px 10px;border-bottom:1px solid var(--b0);background:var(--s1);position:sticky;top:0;z-index:100}
+.logo{display:flex;align-items:center;gap:9px}
+.logo-mark{width:34px;height:34px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,var(--acc),var(--acc2));display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 2px 8px rgba(26,158,74,.28)}
+.logo-name{font-family:var(--fd);font-weight:900;font-size:.9rem;color:var(--acc);line-height:1.1}
+.logo-sub{font-size:.5rem;color:var(--tx3);margin-top:1px;font-weight:500}
+.header-right{display:flex;align-items:center;gap:10px}
+.avatar-btn{width:36px;height:36px;border-radius:50%;flex-shrink:0;background:var(--s2);border:2px solid var(--b0);display:flex;align-items:center;justify-content:center;color:var(--tx3);cursor:pointer;transition:border-color .12s}
+.avatar-btn:hover{border-color:var(--accg);color:var(--acc)}
+.scroll{flex:1;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column}
+/* ── CONTENT STYLES ── */
+.content{flex:1;padding:24px 20px 8px}
+.pg-meta{margin-bottom:20px}
+.pg-back{display:inline-flex;align-items:center;gap:5px;font-size:.62rem;color:var(--tx3);font-weight:500;cursor:pointer;margin-bottom:8px;transition:color .1s}
+.pg-back:hover{color:var(--acc)}
+.pg-back svg{flex-shrink:0}
+.pg-breadcrumb{font-size:.58rem;color:var(--tx3);display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:10px}
+.pg-breadcrumb a{color:var(--acc);font-weight:600}
+.pg-breadcrumb span{color:var(--txd)}
+.pg-title{font-family:var(--fd);font-weight:900;font-size:1.35rem;color:var(--tx);letter-spacing:-.02em;line-height:1.2;margin-bottom:4px}
+.pg-date{font-size:.6rem;color:var(--tx3);font-weight:500}
+.art{margin-bottom:20px}
+.art-title{font-family:var(--fd);font-weight:900;font-size:.88rem;color:var(--tx);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--accg)}
+.art-num{font-size:.52rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);display:block;margin-bottom:3px;font-family:var(--fd)}
+.art p{font-size:.78rem;color:var(--tx2);line-height:1.78;margin-bottom:8px}
+.art p:last-child{margin-bottom:0}
+.art ol,.art ul{padding-left:0;list-style:none;margin-bottom:8px}
+.art ol{counter-reset:li}
+.art ol li{counter-increment:li;font-size:.78rem;color:var(--tx2);line-height:1.72;padding:5px 0 5px 22px;position:relative;border-bottom:1px solid var(--b0)}
+.art ol li::before{content:counter(li)".";position:absolute;left:0;top:5px;font-weight:700;color:var(--acc);font-size:.72rem;font-family:var(--fd)}
+.art ul li{font-size:.78rem;color:var(--tx2);line-height:1.72;padding:5px 0 5px 16px;position:relative;border-bottom:1px solid var(--b0)}
+.art ul li::before{content:'';position:absolute;left:0;top:14px;width:5px;height:5px;border-radius:50%;background:var(--acc);opacity:.6}
+.art ol li:last-child,.art ul li:last-child{border-bottom:none}
+.art-note{background:var(--accd);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;padding:10px 13px;margin-top:8px;font-size:.74rem;color:var(--tx2);line-height:1.65}
+.art-note strong{color:var(--acc);font-weight:700}
+.divider{height:1px;background:var(--b0);margin:6px 20px}
+.contacts{padding:2px 0}
+.contact-item{display:flex;align-items:center;gap:12px;padding:10px 20px;text-decoration:none;color:inherit;transition:background .1s}
+.contact-item.clickable{cursor:pointer}
+.contact-item.clickable:active{background:var(--s2)}
+.ci-icon{width:32px;height:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--tx3)}
+.ci-body{flex:1;min-width:0}
+.ci-val{font-size:.82rem;font-weight:600;color:var(--tx2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ci-sub{font-size:.6rem;color:var(--tx3);margin-top:1px}
+.ci-arrow{color:var(--txd);flex-shrink:0}
+.socials-wrap{padding:10px 20px calc(10px + var(--safe-b));margin-top:auto}
+.socials{display:flex;gap:9px}
+.soc-btn{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;transition:opacity .12s,transform .12s;flex-shrink:0}
+.soc-btn:active{opacity:.7;transform:scale(.93)}
+.soc-btn.fb{background:#1877f2}.soc-btn.ig{background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}.soc-btn.tg{background:#2aabee}.soc-btn.yt{background:#ff0000}
 </style>
 </head>
 <body>
-
-<div class="topbar">
-  <a href="../help.html" class="tb-back">
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-  </a>
-  <div class="tb-center">
-    <div class="tb-breadcrumb"><a href="../help.html">Маълумотнома</a><span>›</span><span style="color:var(--tx2)">Шартҳои расонидан</span></div>
-    <div class="tb-title">Шартҳои расонидан</div>
+<title>Шартҳои расонидан | Galelium Delivery</title>
+</head>
+<body>
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg></div>
+    <div><div class="logo-name">Galelium Delivery</div><div class="logo-sub">Маълумотнома</div></div>
   </div>
-  <a href="../login.html" class="tb-avatar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
+  <div class="header-right">
+    <a href="../login.html" class="avatar-btn"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></a>
+  </div>
 </div>
-
+<div class="scroll">
 <div class="content">
 
-  <div class="section-card">
-    <h2><div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div>Вақти расонидан</h2>
-    <div class="info-row">
-      <div class="info-row-ico">⚡</div>
-      <div class="info-row-body">
-        <div class="info-row-title">Расонидани экспресс</div>
-        <div class="info-row-text">15–35 дақиқа — барои фармоишҳои дар доираи 3 км аз дӯкон.</div>
-      </div>
-    </div>
-    <div class="info-row">
-      <div class="info-row-ico">🛵</div>
-      <div class="info-row-body">
-        <div class="info-row-title">Расонидани стандартӣ</div>
-        <div class="info-row-text">30–60 дақиқа — барои фармоишҳои то 10 км аз дӯкон.</div>
-      </div>
-    </div>
-    <div class="info-row">
-      <div class="info-row-ico">📦</div>
-      <div class="info-row-body">
-        <div class="info-row-title">Фармоиши калон</div>
-        <div class="info-row-text">То 90 дақиқа — барои фармоишҳои зиёд аз 10 кг ё аз якчанд дӯкон.</div>
-      </div>
-    </div>
-    <div class="note"><p><strong>Таваҷҷӯҳ:</strong> Вақт тахминист ва метавонад дар вақтҳои шлуҳ (12:00–14:00 ва 18:00–21:00) 15–20 дақиқа зиёд бошад.</p></div>
-  </div>
-
-  <div class="section-card">
-    <h2><div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>Нархи расонидан</h2>
-    <div class="zone-card">
-      <div class="zone-name">То 3 км</div>
-      <div class="zone-detail"><div class="zone-price">7 сомонӣ</div><div class="zone-time">15–35 дақиқа</div></div>
-    </div>
-    <div class="zone-card">
-      <div class="zone-name">3–6 км</div>
-      <div class="zone-detail"><div class="zone-price">10 сомонӣ</div><div class="zone-time">25–45 дақиқа</div></div>
-    </div>
-    <div class="zone-card">
-      <div class="zone-name">6–10 км</div>
-      <div class="zone-detail"><div class="zone-price">15 сомонӣ</div><div class="zone-time">40–65 дақиқа</div></div>
-    </div>
-    <div class="zone-card">
-      <div class="zone-name">Зиёда аз 10 км</div>
-      <div class="zone-detail"><div class="zone-price">Мувофиқа</div><div class="zone-time">Бо занг муайян</div></div>
-    </div>
-    <div class="note"><p><strong>Расонидани ройгон</strong> барои фармоишҳои зиёда аз 150 сомонӣ дар доираи 5 км.</p></div>
-  </div>
-
-  <div class="section-card">
-    <h2><div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>Минтақаи расонидан</h2>
-    <p>Дар айни замон хизмати расонидан дар қаламрави шаҳри Душанбе фаъол аст.</p>
-    <ul>
-      <li>Марказ, Сино, Фирдавсӣ — доимо фаъол</li>
-      <li>Шоҳмансур, Исмоили Сомонӣ — фаъол</li>
-      <li>Ҳамаи маҳаллаҳои дохили садди шаҳр — фаъол</li>
-      <li>Берун аз шаҳр — бо мувофиқа</li>
-    </ul>
-  </div>
-
-  <div class="section-card">
-    <h2><div class="ico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>Шартҳои қабул</h2>
-    <ul>
-      <li>Мизоҷ бояд дар ҳангоми расонидан дастрас бошад</li>
-      <li>Агар мизоҷ дастрас набошад, курьер 10 дақиқа мемонад ва занг мезанад</li>
-      <li>Баъди 2 кӯшиши бемуваффақ, фармоиш бозгардонида мешавад</li>
-      <li>Ҳангоми қабул мизоҷ рамзи 4-рақамии тасдиқро ба курьер мегӯяд</li>
-      <li>Маҳсулот пеш аз рафтани курьер тафтиш карда шавад</li>
-    </ul>
-  </div>
-
+<div class="pg-meta">
+  <a href="../help.html" class="pg-back"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 5l-7 7 7 7"/></svg> Бозгашт</a>
+  <div class="pg-breadcrumb"><a href="../help.html">Маълумотнома</a><span>›</span><span>Шартҳои расонидан</span></div>
+  <div class="pg-title">Шартҳои расонидан</div>
+  <div class="pg-date">Санаи эътибор: 1 январи 2025</div>
 </div>
 
-<div class="footer">
-  <div class="footer-text">© 2025 Galelium Delivery · Душанбе, Тоҷикистон</div>
-  <div class="footer-links">
-    <a href="payment.html">Пардохт</a>
-    <a href="delivery.html">Расонидан</a>
-    <a href="returns.html">Баргашт</a>
-    <a href="privacy.html">Махфият</a>
-    <a href="terms.html">Шартнома</a>
-  </div>
+<div class="art">
+  <span class="art-num">Моддаи 1</span>
+  <div class="art-title">Умумӣ</div>
+  <p>Ин Шартҳои расонидан тартиби пешниҳод ва иҷрои хизмати расонидани фармоишҳо тавассути платформаи Galelium Delivery (delivery.galelium.com) — хизмати расонидани молу маҳсулот дар шаҳри Душанбе, Ҷумҳурии Тоҷикистонро муайян мекунад.</p>
+  <p>Расонидан тавассути курьерҳои мутахассиси Galelium Delivery анҷом дода мешавад. Ширкат масъулияти пурраро барои раванди расонидан аз лаҳзаи гирифтани фармоиш аз дӯкон/кафе то лаҳзаи супоридан ба мизоҷ мепазирад.</p>
 </div>
 
+<div class="art">
+  <span class="art-num">Моддаи 2</span>
+  <div class="art-title">Минтақаи расонидан</div>
+  <ol>
+    <li>Хизмати расонидан дар доираи маъмурии шаҳри Душанбе, Ҷумҳурии Тоҷикистон пешниҳод мегардад.</li>
+    <li>Расонидан ба берун аз ҳудуди шаҳр — ноҳияҳои Рӯдакӣ, Вахдат, Ҳисор ва ғайра — танҳо бо мувофиқати пешакии хизмати дастгирӣ ва бо тарифи алоҳида анҷом дода мешавад.</li>
+    <li>Ширкат ҳуқуқ дорад дар ҳолатҳои фавқулода — ҳавои бад, бастани роҳҳо, ҳолати фавқулода — хидмат дар ягон минтақаро муваққатан маҳдуд намояд.</li>
+    <li>Маълумот дар бораи минтақаҳои дастрас дар барнома нишон дода мешавад. Мизоҷ метавонад ба хизмати дастгирӣ муроҷиат намояд то дастрасии минтақаи худро тафтиш кунад.</li>
+  </ol>
+</div>
+
+<div class="art">
+  <span class="art-num">Моддаи 3</span>
+  <div class="art-title">Муҳлати расонидан</div>
+  <ol>
+    <li>Муҳлати тахминии расонидан дар барнома ҳангоми тасдиқи фармоиш нишон дода мешавад ва аз лаҳзаи гирифтани фармоиш аз дӯкон/кафе ҳисоб карда мешавад.</li>
+    <li>Муҳлатҳои тахминӣ: то 3 км аз дӯкон — 15 то 35 дақиқа; аз 3 то 6 км — 25 то 50 дақиқа; аз 6 то 10 км — 40 то 70 дақиқа; зиёда аз 10 км — бо мувофиқа.</li>
+    <li>Вақти омодасозии фармоиш аз ҷониби дӯкон/кафе ба муҳлати умумӣ илова карда мешавад ва аз ихтиёри Galelium Delivery берун аст.</li>
+    <li>Ширкат барои таъхир дар ҳолатҳои зерин масъул нест: тағйирот дар вақти омодасозии фармоиш аз ҷониби дӯкон; банҷомии роҳ ё ҳолати ғайримуқаррарии шаҳр; ҳаводисҳои табиӣ ё ҳолати фавқулода; суроғаи нодурусти мизоҷ; дастнорасии мизоҷ ҳангоми расонидан.</li>
+    <li>Дар ҳолати таъхири зиёда аз 30 (си) дақиқа аз муҳлати эълоншуда, Ширкат ӯҳдадор аст мизоҷро огоҳ созад.</li>
+  </ol>
+</div>
+
+<div class="art">
+  <span class="art-num">Моддаи 4</span>
+  <div class="art-title">Нархи расонидан</div>
+  <ol>
+    <li>Нархи расонидан мувофиқи масофа ва тарифи амалкунандаи Ширкат ҳисоб карда мешавад ва пеш аз тасдиқи фармоиш ба мизоҷ нишон дода мешавад.</li>
+    <li>Тарифҳои асосӣ: то 3 км — 7 (ҳафт) сомонӣ; аз 3 то 6 км — 10 (даҳ) сомонӣ; аз 6 то 10 км — 15 (понздаҳ) сомонӣ; зиёда аз 10 км — тавассути мувофиқа бо хизмати дастгирӣ.</li>
+    <li>Расонидани ройгон барои фармоишҳои зиёда аз 150 (яксаду панҷоҳ) сомонӣ дар доираи 5 км пешниҳод мегардад.</li>
+    <li>Дар давраи шлуҳ (12:00–14:00 ва 18:00–21:00), рӯзи таотил ва ҳаводиси ҷавӣ нархи расонидан метавонад бо зарибаи то 1,5 афзоиш ёбад. Дар ин ҳолат нарх ҳангоми тасдиқ нишон дода мешавад.</li>
+    <li>Ширкат ҳуқуқ дорад тарифҳоро бо огоҳии 3 (се) рӯза тағйир диҳад.</li>
+  </ol>
+</div>
+
+<div class="art">
+  <span class="art-num">Моддаи 5</span>
+  <div class="art-title">Тартиби қабули фармоиш</div>
+  <ol>
+    <li>Мизоҷ ӯҳдадор аст суроғаи дақиқи расонидан — кӯча, рақами хона, манзил ё дафтар — нишон диҳад. Surogai нодуруст сабаби таъхир ё бекор шудани фармоиш шуда метавонад.</li>
+    <li>Ҳангоми расонидан, мизоҷ бояд дастрас бошад — бо телефони нишондодашуда дар барнома. Агар мизоҷ дастрас набошад, курьер 10 (даҳ) дақиқа дар суроға мемонад ва 2 (ду) маротиба занг мезанад.</li>
+    <li>Пас аз 2 (ду) кӯшиши бемуваффақ, фармоиш «Расонидашудааст» қайд карда мешавад, аммо маблағ баргардонида намешавад — ба истиснои ҳолатҳои мувофиқашудаи алоҳида.</li>
+    <li>Барои қабули фармоиш, мизоҷ бояд рамзи тасдиқи 4-рақамии барномаро ба курьер гӯяд. Бе ин рамз курьер ҳуқуқ надорад фармоишро супорад.</li>
+    <li>Мизоҷ ё намояндаи расмии ӯ ҳуқуқ дорад фармоишро қабул кунад. Намоянда бояд рамзи тасдиқро донад.</li>
+    <li>Мизоҷ вазифадор аст маҳсулотро пеш аз рафтани курьер санҷад. Шикоят дар бораи зарардидагии зоҳирӣ пас аз рафтани курьер қабул карда намешавад.</li>
+  </ol>
+</div>
+
+<div class="art">
+  <span class="art-num">Моддаи 6</span>
+  <div class="art-title">Бекоркунии фармоиш</div>
+  <ol>
+    <li>Мизоҷ ҳуқуқ дорад фармоишро дар давоми 5 (панҷ) дақиқаи пас аз тасдиқ бидуни ягон ҷарима бекор кунад.</li>
+    <li>Бекоркунии фармоиш пас аз оғози омодасозии он аз ҷониби дӯкон метавонад бо пардохти ҷарима — то 50% нархи маҳсулот — ҳамроҳ бошад.</li>
+    <li>Баъди курьер фармоишро ба даст гирифт, бекоркунӣ имконпазир нест. Дар ин ҳолат фармоиш расонида мешавад ва пардохт анҷом дода мешавад.</li>
+    <li>Ширкат ҳуқуқ дорад фармоишро бекор кунад дар ҳолатҳои: дастнорасии маҳсулот дар дӯкон; маълумоти нодурусти мизоҷ; хатари амниятӣ; ҳолатҳои фавқулода.</li>
+  </ol>
+</div>
+
+<div class="art">
+  <span class="art-num">Моддаи 7</span>
+  <div class="art-title">Масъулияти тарафҳо</div>
+  <ol>
+    <li>Galelium Delivery масъулияти пурраро барои бехатарии маҳсулот дар давоми расонидан мепазирад.</li>
+    <li>Ширкат барои сифати маҳсулоти тайёркардаи дӯконҳо ва кафеҳои шарик масъул нест. Шикоят дар бораи сифат мустақиман ба шарик ё тавассути хизмати дастгирии Galelium Delivery пешкаш карда мешавад.</li>
+    <li>Мизоҷ масъул аст барои: суроғаи дурусти расонидан; дастрасии худ ё намояндааш дар вақти расонидан; дурустии маълумоти тамос.</li>
+    <li>Андозаи ҷуброни зиёни расонидашуда аз маблағи фармоиш зиёд буда наметавонад.</li>
+  </ol>
+</div>
+
+</div>
+  <div class="divider"></div>
+  <div class="contacts">
+    <a href="tel:+992977178800" class="contact-item clickable">
+      <div class="ci-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.37 1.18 2 2 0 012.34 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.08 6.08l1.27-.77a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div>
+      <div class="ci-body"><div class="ci-val">+992 977 17 8800</div><div class="ci-sub">Хизмати дастгирӣ</div></div>
+      <svg class="ci-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
+    <a href="tel:+992878777788" class="contact-item clickable">
+      <div class="ci-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.37 1.18 2 2 0 012.34 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.08 6.08l1.27-.77a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg></div>
+      <div class="ci-body"><div class="ci-val">+992 87 877 7788</div><div class="ci-sub">Хизмати дастгирӣ</div></div>
+      <svg class="ci-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
+    <div class="contact-item">
+      <div class="ci-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+      <div class="ci-body"><div class="ci-val">Душанбе, Тоҷикистон</div></div>
+    </div>
+    <a href="mailto:info@galelium.com" class="contact-item clickable">
+      <div class="ci-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div>
+      <div class="ci-body"><div class="ci-val">info@galelium.com</div></div>
+    </a>
+    <div class="contact-item">
+      <div class="ci-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="ci-body"><div class="ci-val">Душ – Ҷум: 8:00 – 22:00</div></div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="socials-wrap">
+    <div class="socials">
+      <a href="#" class="soc-btn fb"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3z"/></svg></a>
+      <a href="#" class="soc-btn ig"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg></a>
+      <a href="#" class="soc-btn tg"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c-.242-.213-.054-.333-.373-.12L7.17 13.267l-2.96-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.978.292z"/></svg></a>
+      <a href="#" class="soc-btn yt"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.495 6.205a3.007 3.007 0 00-2.088-2.088c-1.87-.501-9.396-.501-9.396-.501s-7.507-.01-9.396.501A3.007 3.007 0 00.527 6.205a31.247 31.247 0 00-.522 5.805 31.247 31.247 0 00.522 5.783 3.007 3.007 0 002.088 2.088c1.868.502 9.396.502 9.396.502s7.506 0 9.396-.502a3.007 3.007 0 002.088-2.088 31.247 31.247 0 00.5-5.783 31.247 31.247 0 00-.5-5.805zM9.609 15.601V8.408l6.264 3.602z"/></svg></a>
+    </div>
+  </div>
+</div>
 </body>
 </html>
