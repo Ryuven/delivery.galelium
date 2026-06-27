@@ -108,8 +108,7 @@ a{color:inherit;text-decoration:none}
 
 /* ── PAGES ── */
 .pages{flex:1;overflow-y:auto;overflow-x:hidden}
-.page{display:none;padding:22px 22px 36px;animation:pgIn .25s var(--ease) both;max-width:1080px;overflow-x:hidden;box-sizing:border-box}
-.page.active{display:block}
+.page{display:none;padding:22px 22px 36px;animation:pgIn .25s var(--ease) both;max-width:1080px;overflow-x:hidden;box-sizing:border-box}.page.active{display:block}
 @keyframes pgIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 
 /* ── SHARED ── */
@@ -198,7 +197,7 @@ a{color:inherit;text-decoration:none}
 
 /* ── CART ── */
 .cart-layout{display:grid;grid-template-columns:1fr 300px;gap:18px;align-items:start;min-width:0}
-.ci{background:var(--s1);border:1.5px solid var(--b0);border-radius:13px;padding:10px 12px;display:grid;grid-template-columns:44px minmax(0,1fr) auto auto auto;align-items:center;gap:8px;margin-bottom:8px;transition:border-color var(--tf);box-shadow:var(--shadow);overflow:hidden;box-sizing:border-box;width:100%}
+.ci{background:var(--s1);border:1.5px solid var(--b0);border-radius:13px;padding:10px 12px;display:grid;grid-template-columns:44px minmax(0,1fr) auto auto auto;align-items:center;gap:8px;margin-bottom:8px;transition:border-color var(--tf);box-shadow:var(--shadow);overflow:hidden;box-sizing:border-box;width:100%;max-width:100%}
 .ci:hover{border-color:var(--accg)}
 .ci-img{width:44px;height:44px;border-radius:9px;background:var(--s2);display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
 .ci-img img{width:100%;height:100%;object-fit:cover}
@@ -364,10 +363,11 @@ select.addr-inp{cursor:pointer}
   .cart-layout{grid-template-columns:1fr}
   .ci{grid-template-columns:40px minmax(0,1fr) auto auto auto;gap:6px;padding:9px 10px}
   .ci-img{width:40px;height:40px}
-  .ci-total{min-width:38px;font-size:.8rem}
-  .qty-btn{width:24px;height:24px}
-  .qty-val{min-width:20px;height:24px;line-height:24px;font-size:.74rem}
-  #cart-list{overflow:hidden;max-width:100%}
+  .ci-total{min-width:36px;font-size:.75rem}
+  .qty-btn{width:22px;height:22px;font-size:.8rem}
+  .qty-val{min-width:18px;height:22px;line-height:22px;font-size:.72rem}
+  .ci-del svg{width:13px;height:13px}
+  #cart-list{overflow:hidden;max-width:100%;width:100%}
   .pg2{grid-template-columns:1fr}
   .cat-panels{grid-template-columns:repeat(2,1fr)}
   .pg{grid-template-columns:repeat(2,1fr)}
@@ -591,8 +591,7 @@ select.addr-inp{cursor:pointer}
 <!-- SIDEBAR -->
 <aside class="sb" id="sidebar">
   <div class="sb-logo">
-    <div class="sb-logo-mark"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg></div>
-    <div><div class="sb-logo-text">Galelium<em>.</em></div><div class="sb-logo-sub">Delivery</div></div>
+    <img src="dastdaroz.png" alt="dastdaroz" style="height:28px;width:auto;object-fit:contain;display:block"/>
   </div>
   <div class="sb-addr" id="sb-addr-row" onclick="closeSB();openAddrModal('cart')" style="cursor:pointer">
     <div class="sb-addr-ico"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
@@ -608,6 +607,8 @@ select.addr-inp{cursor:pointer}
     <button class="ni guest-hidden" data-page="status"  onclick="goPage('status')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>Ҳолати фармоиш</button>
     <div class="nav-grp">Аккаунт</div>
     <button class="ni"        data-page="profile" onclick="goPage('profile')"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Профил</button>
+    <div class="nav-grp">Дигар</div>
+    <a href="help.html" class="ni" style="text-decoration:none"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>FAQ / Ёрдам</a>
     <!-- Кнопка входа — только для гостя -->
     <button class="ni guest-only" style="display:none;color:var(--acc)" onclick="goLogin()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>Ворид шавед</button>
   </nav>
@@ -625,7 +626,9 @@ select.addr-inp{cursor:pointer}
 <div class="main">
   <div class="topbar" id="topbar">
     <button class="mob-btn" onclick="toggleSB()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h12"/></svg></button>
-    <div class="tb-title" id="tb-title">Galelium <em>Delivery</em></div>
+    <div class="tb-title" id="tb-title" style="display:flex;align-items:center">
+      <img src="dastdaroz.png" alt="dastdaroz" style="height:22px;width:auto;object-fit:contain"/>
+    </div>
     <div class="tb-search-top"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg><input type="text" id="search-inp-top" placeholder="Ҷустуҷӯи хӯрок…" oninput="onSearch(this.value)"/></div>
     <button class="tb-cart" onclick="goPage('cart')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>Сабад<span class="tb-cart-cnt" id="tb-cnt">0</span></button>
   </div>
