@@ -1194,6 +1194,8 @@ window.doCheckout = async function () {
       orderNumber:   oNum,
       confirmCode:   confirmCode,
       items:         cart.map(c => ({ productId: c.productId, name: c.name, price: c.price, quantity: c.quantity })),
+      subtotal:      sub,
+      deliveryFee:   DFEE,
       total:         sub + DFEE,
       address:       addr,
       lat:           lat,
