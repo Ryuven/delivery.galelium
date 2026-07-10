@@ -1555,7 +1555,21 @@ function renderStatusPage() {
       <div><div class="sh-tag" style="margin-bottom:3px">Пардохт</div><div style="color:var(--tx)">${pay}</div></div>
       <div><div class="sh-tag" style="margin-bottom:3px">Курьер</div><div style="color:var(--tx)">${o.courierName || 'Таъин мешавад…'}</div></div>
       <div><div class="sh-tag" style="margin-bottom:3px">Вақт</div><div style="color:var(--tx)">${date}</div></div>
-    </div><div class="divider"></div>
+    </div>
+
+    ${o.courierId ? `
+    <button class="chat-trigger" onclick="openChat('${o.id}')">
+      <div class="chat-trigger-ico">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+      </div>
+      <div class="chat-trigger-body">
+        <div class="chat-trigger-title">Чат бо курьер</div>
+        <div class="chat-trigger-sub">${o.lastMessageAt ? escHtml(o.lastMessage || 'Паём') : (escHtml(o.courierName || 'Курьер') + ' — нависед агар савол дошта бошед')}</div>
+      </div>
+      ${o.clientUnread > 0 ? `<div class="chat-trigger-badge">${o.clientUnread}</div>` : `<svg class="chat-trigger-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`}
+    </button>` : ''}
+
+    <div class="divider"></div>
     <div class="sh-tag" style="margin-bottom:10px">Таркиб</div>
     ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.75rem"><span style="color:var(--tx)">${i.name}<span style="color:var(--tx3)"> ×${i.quantity}</span></span><span style="font-weight:600;color:var(--tx2)">${i.price * i.quantity} см</span></div>`).join('')}
     <div style="display:flex;justify-content:space-between;font-size:.72rem;padding:8px 0;color:var(--tx3)"><span>Расонидан</span><span>${DFEE} см</span></div>
@@ -1570,6 +1584,106 @@ function renderStatusPage() {
     </div>` : ''}
   </div>`;
 }
+
+// ─── ЧАТ З КУРЬЕРОМ ────────────────────────────────────────────
+let chatOid      = null;
+let chatUnsub    = null;
+let chatMessages = [];
+
+window.openChat = async function (oid) {
+  const o = orders.find(x => x.id === oid);
+  if (!o) return;
+  chatOid = oid;
+
+  const bg = document.getElementById('chat-modal-bg');
+  if (bg) bg.classList.add('open');
+
+  const nameEl = document.getElementById('chat-modal-name');
+  if (nameEl) nameEl.textContent = o.courierName || 'Курьер';
+  const avEl = document.getElementById('chat-modal-av');
+  if (avEl) avEl.textContent = (o.courierName || 'К').trim().charAt(0).toUpperCase() || 'К';
+  const subEl = document.getElementById('chat-modal-sub');
+  if (subEl) subEl.textContent = 'Фармоиш ' + (o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6));
+
+  // Сбрасываем счётчик непрочитанных для клиента
+  try { await updateDoc(doc(db, 'orders', oid), { clientUnread: 0 }); } catch {}
+
+  listenChatMessages(oid);
+  setTimeout(() => document.getElementById('chat-input')?.focus(), 350);
+};
+
+window.closeChat = function () {
+  const bg = document.getElementById('chat-modal-bg');
+  if (bg) bg.classList.remove('open');
+  if (chatUnsub) { chatUnsub(); chatUnsub = null; }
+  chatOid = null;
+  chatMessages = [];
+};
+
+function listenChatMessages(oid) {
+  if (chatUnsub) { chatUnsub(); chatUnsub = null; }
+  const q = query(collection(db, 'orders', oid, 'messages'), orderBy('createdAt', 'asc'));
+  chatUnsub = onSnapshot(q, snap => {
+    chatMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderChatMessages();
+  });
+}
+
+function renderChatMessages() {
+  const wrap = document.getElementById('chat-messages');
+  if (!wrap) return;
+
+  if (chatMessages.length === 0) {
+    wrap.innerHTML = `<div class="chat-empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+      <div class="chat-empty-t">Ҳанӯз паём нест</div>
+      <div class="chat-empty-s">Ба курьер нависед, агар дар бораи фармоиш савол дошта бошед</div>
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = chatMessages.map(m => {
+    const mine = m.senderRole === 'client';
+    const time = m.createdAt?.toDate
+      ? m.createdAt.toDate().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+      : '';
+    return `<div class="chat-msg ${mine ? 'chat-msg-me' : 'chat-msg-them'}">${escHtml(m.text)}<span class="chat-msg-time">${time}</span></div>`;
+  }).join('');
+
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+window.sendChatMsg = async function () {
+  const inp = document.getElementById('chat-input');
+  if (!inp || !chatOid) return;
+  const text = inp.value.trim();
+  if (!text) return;
+
+  inp.value = '';
+  inp.style.height = 'auto';
+  const btn = document.getElementById('chat-send-btn');
+  if (btn) btn.disabled = true;
+
+  try {
+    await addDoc(collection(db, 'orders', chatOid, 'messages'), {
+      text,
+      senderId:   CU.uid,
+      senderRole: 'client',
+      senderName: UD?.displayName || 'Мизоҷ',
+      createdAt:  serverTimestamp(),
+    });
+    await updateDoc(doc(db, 'orders', chatOid), {
+      courierUnread:         increment(1),
+      lastMessage:           text.slice(0, 120),
+      lastMessageAt:         serverTimestamp(),
+      lastMessageSenderRole: 'client',
+    });
+  } catch (e) {
+    toast('Хато ҳангоми фиристодани паём', 'err');
+  }
+  if (btn) btn.disabled = false;
+  inp.focus();
+};
 
 // ─── Профиль ─────────────────────────────────────────────────
 function renderProfile() {

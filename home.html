@@ -392,6 +392,45 @@ select.addr-inp{cursor:pointer}
 .o-modal-close{width:30px;height:30px;border-radius:50%;background:var(--s2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tx3);transition:all var(--tf)}
 .o-modal-close:hover{background:var(--s3);color:var(--tx)}
 
+/* ═══ ЧАТ З КУРЬЕРОМ ═══════════════════════════════════════ */
+.chat-modal-bg{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.45);backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s}
+.chat-modal-bg.open{opacity:1;pointer-events:all}
+.chat-modal{background:var(--s1);border-radius:24px 24px 0 0;width:100%;max-width:600px;height:86vh;overflow:hidden;display:flex;flex-direction:column;transform:translateY(100%);transition:transform .32s var(--spring)}
+.chat-modal-bg.open .chat-modal{transform:translateY(0)}
+.chat-modal-drag{width:40px;height:4px;background:var(--b1);border-radius:99px;margin:10px auto 0;flex-shrink:0}
+.chat-modal-head{display:flex;align-items:center;gap:11px;padding:14px 18px 12px;border-bottom:1px solid var(--b0);flex-shrink:0}
+.chat-modal-av{width:38px;height:38px;border-radius:50%;background:var(--accd);border:2px solid var(--accg);display:flex;align-items:center;justify-content:center;font-family:var(--fd);font-weight:800;color:var(--acc);font-size:.85rem;flex-shrink:0}
+.chat-modal-info{flex:1;min-width:0}
+.chat-modal-name{font-family:var(--fd);font-weight:800;font-size:.88rem;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-modal-sub{font-size:.66rem;color:var(--tx3);margin-top:1px}
+.chat-modal-close{width:30px;height:30px;border-radius:50%;background:var(--s2);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--tx3);flex-shrink:0;transition:all var(--tf)}
+.chat-modal-close:hover{background:var(--s3);color:var(--tx)}
+.chat-messages{flex:1;overflow-y:auto;padding:16px 16px 8px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}
+.chat-msg{max-width:78%;padding:9px 13px;border-radius:16px;font-size:.82rem;line-height:1.42;word-wrap:break-word;white-space:pre-wrap}
+.chat-msg-them{align-self:flex-start;background:var(--s2);color:var(--tx);border-bottom-left-radius:4px}
+.chat-msg-me{align-self:flex-end;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;border-bottom-right-radius:4px}
+.chat-msg-time{font-size:.58rem;opacity:.62;margin-top:3px;display:block}
+.chat-msg-me .chat-msg-time{text-align:right}
+.chat-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:var(--tx3);padding:40px 20px;text-align:center}
+.chat-empty svg{opacity:.35;margin-bottom:2px}
+.chat-empty-t{font-weight:700;font-size:.82rem;color:var(--tx2)}
+.chat-empty-s{font-size:.7rem;max-width:220px}
+.chat-input-row{display:flex;align-items:flex-end;gap:8px;padding:10px 14px calc(env(safe-area-inset-bottom,0px) + 10px);border-top:1px solid var(--b0);flex-shrink:0;background:var(--s1)}
+.chat-input{flex:1;resize:none;max-height:100px;border:1.5px solid var(--b1);border-radius:20px;padding:9px 15px;font-family:var(--fs);font-size:.84rem;background:var(--s2);color:var(--tx);outline:none;transition:border-color .15s}
+.chat-input:focus{border-color:var(--acc)}
+.chat-send-btn{width:38px;height:38px;border-radius:50%;background:var(--acc);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0;transition:transform .12s,opacity .12s}
+.chat-send-btn:active{transform:scale(.9)}
+
+/* Кнопка "Чат бо курьер" на странице статуса */
+.chat-trigger{display:flex;align-items:center;gap:12px;padding:13px 15px;background:var(--s1);border:1.5px solid var(--accg);border-radius:16px;cursor:pointer;margin-top:14px;transition:all .15s;text-align:left;width:100%;box-sizing:border-box;font-family:var(--fs)}
+.chat-trigger:hover{background:var(--accd)}
+.chat-trigger-ico{width:40px;height:40px;border-radius:50%;background:var(--accd);display:flex;align-items:center;justify-content:center;color:var(--acc);flex-shrink:0}
+.chat-trigger-body{flex:1;min-width:0}
+.chat-trigger-title{font-weight:700;font-size:.82rem;color:var(--tx)}
+.chat-trigger-sub{font-size:.68rem;color:var(--tx3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-trigger-badge{min-width:20px;height:20px;padding:0 6px;background:var(--red);color:#fff;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;flex-shrink:0}
+.chat-trigger-arrow{color:var(--tx3);flex-shrink:0}
+
 /* ── RECEIPT ── */
 .receipt{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);margin:14px 0}
 .receipt-top{background:linear-gradient(135deg,var(--acc) 0%,#0fa352 100%);padding:20px 22px 18px;color:#fff;position:relative;overflow:hidden}
@@ -839,6 +878,32 @@ select.addr-inp{cursor:pointer}
       </button>
     </div>
     <div class="o-modal-scroll" id="order-modal-body"></div>
+  </div>
+</div>
+
+<!-- CHAT MODAL (чат клиент ↔ курьер) -->
+<div class="chat-modal-bg" id="chat-modal-bg" onclick="if(event.target===this)closeChat()">
+  <div class="chat-modal" id="chat-modal">
+    <div class="chat-modal-drag"></div>
+    <div class="chat-modal-head">
+      <div class="chat-modal-av" id="chat-modal-av">К</div>
+      <div class="chat-modal-info">
+        <div class="chat-modal-name" id="chat-modal-name">Курьер</div>
+        <div class="chat-modal-sub" id="chat-modal-sub">Чат оид ба фармоиш</div>
+      </div>
+      <button class="chat-modal-close" onclick="closeChat()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <textarea class="chat-input" id="chat-input" rows="1" placeholder="Паём нависед…"
+        oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMsg();}"></textarea>
+      <button class="chat-send-btn" id="chat-send-btn" onclick="sendChatMsg()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
   </div>
 </div>
 
