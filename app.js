@@ -1524,6 +1524,181 @@ function renderLiveBanner() {
   wrap.innerHTML = `<div class="live-banner" onclick="trackO('${live.id}')"><div class="live-pulse"></div><div class="live-info"><div class="live-lbl">Фармоиши фаъол</div><div class="live-txt">Фармоиш ${num} · ${SL[live.status]} · ${live.total} см</div></div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--acc)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></div>`;
 }
 
+// ─── Карта трекинга курьера (страница «Ҳолати фармоиш») ───────
+let _trackMap         = null;
+let _trackMarkerDest  = null;
+let _trackMarkerCour  = null;
+let _trackRouteLine   = null;
+let _trackCourierUnsub = null;
+let _trackCourierId   = null;
+let _trackFitted      = false;
+let _trackLastOid     = null;
+
+const SC_HEX = {
+  pending:    '#d97706',
+  confirmed:  '#2563eb',
+  preparing:  '#7c3aed',
+  delivering: '#1a9e4a',
+  delivered:  '#1a9e4a',
+  cancelled:  '#dc2626',
+};
+
+function mkTrackIcon(html, size) {
+  return L.divIcon({ html, className: 'smap-marker-wrap', iconSize: [size, size], iconAnchor: [size / 2, size / 2] });
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const ICO_DEST    = '<div class="smap-marker-dest"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.6"><circle cx="12" cy="12" r="3"/></svg></div>';
+const ICO_COURIER = '<div class="smap-marker-courier"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg></div>';
+
+function renderStatusMap(o) {
+  const card = document.getElementById('status-map-card');
+  if (!card) return;
+
+  const hasCoords = o && o.lat != null && o.lng != null;
+  if (!o || !hasCoords) {
+    card.style.display = 'none';
+    stopCourierTracking();
+    return;
+  }
+
+  // Новый заказ — сбрасываем состояние привязки камеры
+  if (_trackLastOid !== o.id) { _trackLastOid = o.id; _trackFitted = false; }
+
+  card.style.display = 'block';
+
+  const num = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6).toUpperCase();
+  const codeEl = document.getElementById('smap-code');
+  if (codeEl) codeEl.textContent = num;
+
+  const stEl = document.getElementById('smap-status');
+  if (stEl) {
+    const hex = SC_HEX[o.status] || '#888';
+    stEl.textContent = SL[o.status] || o.status;
+    stEl.style.color = hex;
+    stEl.style.borderColor = hex + '55';
+    stEl.style.background = hex + '17';
+  }
+
+  // Инициализация карты (единожды за сессию)
+  if (!_trackMap) {
+    _trackMap = L.map('status-map', {
+      center: [o.lat, o.lng], zoom: 15,
+      zoomControl: false, attributionControl: false,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(_trackMap);
+  }
+  setTimeout(() => _trackMap && _trackMap.invalidateSize(), 60);
+
+  // Маркер точки доставки — присутствует всегда
+  if (!_trackMarkerDest) {
+    _trackMarkerDest = L.marker([o.lat, o.lng], { icon: mkTrackIcon(ICO_DEST, 30), zIndexOffset: 400 }).addTo(_trackMap);
+  } else {
+    _trackMarkerDest.setLatLng([o.lat, o.lng]);
+  }
+
+  const infoBar = document.getElementById('smap-info-bar');
+  const TERMINAL = ['delivered', 'cancelled'];
+
+  if (TERMINAL.includes(o.status)) {
+    stopCourierTracking();
+    if (infoBar) {
+      infoBar.innerHTML = o.status === 'delivered'
+        ? `<div class="smap-info-row"><div class="smap-info-ico done">✓</div><div class="smap-info-body"><div class="smap-info-title">Фармоиш расонида шуд</div><div class="smap-info-sub">${o.address || ''}</div></div></div>`
+        : `<div class="smap-info-row"><div class="smap-info-ico cancel">✕</div><div class="smap-info-body"><div class="smap-info-title">Фармоиш бекор карда шуд</div></div></div>`;
+    }
+    if (!_trackFitted) { _trackMap.setView([o.lat, o.lng], 15); _trackFitted = true; }
+    return;
+  }
+
+  if (!o.courierId) {
+    // Курьер ҳанӯз таъин нашудааст — нақшаро бе маркери курьер нишон медиҳем
+    stopCourierTracking();
+    if (infoBar) {
+      infoBar.innerHTML = `<div class="smap-info-row">
+        <div class="smap-info-ico waiting"><span class="smap-pulse-dot"></span></div>
+        <div class="smap-info-body">
+          <div class="smap-info-title">Мунтазири курьер</div>
+          <div class="smap-info-sub">Ба зудӣ таъин карда мешавад</div>
+        </div>
+      </div>`;
+    }
+    if (!_trackFitted) { _trackMap.setView([o.lat, o.lng], 15); _trackFitted = true; }
+    return;
+  }
+
+  // Курьер таъин шудааст — зинда пайгирии координатаи ӯ
+  if (_trackCourierId !== o.courierId) {
+    stopCourierTracking();
+    _trackCourierId = o.courierId;
+    _trackCourierUnsub = onSnapshot(doc(db, 'couriers', o.courierId), snap => {
+      if (!snap.exists()) return;
+      const loc = snap.data()?.location;
+      if (!loc || loc.lat == null || loc.lng == null) {
+        const ib = document.getElementById('smap-info-bar');
+        if (ib) ib.innerHTML = `<div class="smap-info-row">
+          <div class="smap-info-ico waiting"><span class="smap-pulse-dot"></span></div>
+          <div class="smap-info-body">
+            <div class="smap-info-title">${escHtml(o.courierName || 'Курьер')}</div>
+            <div class="smap-info-sub">GPS интизор аст…</div>
+          </div>
+        </div>`;
+        return;
+      }
+      updateCourierOnMap(o, loc.lat, loc.lng);
+    });
+  }
+}
+
+function updateCourierOnMap(o, lat, lng) {
+  if (!_trackMap) return;
+
+  if (!_trackMarkerCour) {
+    _trackMarkerCour = L.marker([lat, lng], { icon: mkTrackIcon(ICO_COURIER, 34), zIndexOffset: 800 }).addTo(_trackMap);
+  } else {
+    _trackMarkerCour.setLatLng([lat, lng]);
+  }
+
+  const pts = [[lat, lng], [o.lat, o.lng]];
+  if (!_trackRouteLine) {
+    _trackRouteLine = L.polyline(pts, { color: '#1a9e4a', weight: 3.5, opacity: .75, dashArray: '8 10' }).addTo(_trackMap);
+  } else {
+    _trackRouteLine.setLatLngs(pts);
+  }
+
+  if (!_trackFitted) {
+    try { _trackMap.fitBounds(_trackRouteLine.getBounds(), { padding: [46, 46], maxZoom: 16 }); } catch {}
+    _trackFitted = true;
+  }
+
+  const dist = haversineKm(lat, lng, o.lat, o.lng);
+  const distTxt = dist < 1 ? Math.round(dist * 1000) + ' м' : dist.toFixed(1) + ' км';
+  const infoBar = document.getElementById('smap-info-bar');
+  if (infoBar) {
+    infoBar.innerHTML = `<div class="smap-info-row">
+      <div class="smap-info-ico active"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg></div>
+      <div class="smap-info-body">
+        <div class="smap-info-title">${escHtml(o.courierName || 'Курьер')}</div>
+        <div class="smap-info-sub">Дар роҳ ба суи шумо</div>
+      </div>
+      <div class="smap-info-dist">${distTxt}</div>
+    </div>`;
+  }
+}
+
+function stopCourierTracking() {
+  if (_trackCourierUnsub) { _trackCourierUnsub(); _trackCourierUnsub = null; }
+  _trackCourierId = null;
+  if (_trackMarkerCour) { _trackMarkerCour.remove(); _trackMarkerCour = null; }
+  if (_trackRouteLine)  { _trackRouteLine.remove();  _trackRouteLine  = null; }
+}
+
 // ─── Страница статуса заказа ──────────────────────────────────
 function renderStatusPage() {
   const el = document.getElementById('status-content');
@@ -1532,6 +1707,7 @@ function renderStatusPage() {
   if (activeOid) o = orders.find(x => x.id === activeOid);
   if (!o) o = orders.find(x => ['pending', 'confirmed', 'preparing', 'delivering'].includes(x.status));
   if (!o && orders.length > 0) o = orders[0];
+  renderStatusMap(o);
   if (!o) {
     el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';
     return;

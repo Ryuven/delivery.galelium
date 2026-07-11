@@ -431,6 +431,76 @@ select.addr-inp{cursor:pointer}
 .chat-trigger-badge{min-width:20px;height:20px;padding:0 6px;background:var(--red);color:#fff;border-radius:99px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:800;flex-shrink:0}
 .chat-trigger-arrow{color:var(--tx3);flex-shrink:0}
 
+/* ═══ КАРТА ТРЕКИНГА КУРЬЕРА (страница «Ҳолати фармоиш») ══════ */
+.status-map-card{
+  position:relative;height:252px;border-radius:18px;overflow:hidden;
+  margin-bottom:14px;box-shadow:var(--shadow-md);border:1px solid var(--b0);
+  background:var(--s2);
+}
+#status-map{position:absolute;inset:0;z-index:1;background:var(--s2)}
+#status-map .leaflet-control-zoom{margin-bottom:66px !important;margin-right:10px !important}
+#status-map .leaflet-control-zoom a{background:var(--s1) !important;color:var(--tx2) !important;border-color:var(--b0) !important}
+#status-map .leaflet-control-zoom a:hover{background:var(--s2) !important}
+
+.smap-top-row{
+  position:absolute;top:12px;left:12px;right:12px;z-index:20;
+  display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+  pointer-events:none;
+}
+.smap-badge-code{
+  background:rgba(255,255,255,.94);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid var(--b0);border-radius:99px;padding:6px 13px;
+  font-family:var(--fd);font-weight:800;font-size:.72rem;color:var(--tx);
+  box-shadow:0 2px 10px rgba(0,0,0,.1);letter-spacing:.01em;
+}
+.smap-badge-status{
+  backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border-radius:99px;border:1.5px solid;padding:6px 13px;
+  font-weight:700;font-size:.64rem;box-shadow:0 2px 10px rgba(0,0,0,.1);
+  white-space:nowrap;
+}
+
+.smap-info-bar{
+  position:absolute;left:0;right:0;bottom:0;z-index:20;padding:14px 12px 12px;
+  background:linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.82) 30%,rgba(255,255,255,.97) 100%);
+}
+.smap-info-row{
+  display:flex;align-items:center;gap:10px;
+  background:var(--s1);border:1px solid var(--b0);border-radius:14px;
+  padding:9px 12px;box-shadow:0 3px 14px rgba(0,0,0,.08);
+}
+.smap-info-ico{
+  width:34px;height:34px;border-radius:50%;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+}
+.smap-info-ico.waiting{background:var(--amber-d);color:var(--amber)}
+.smap-info-ico.active{background:var(--accd);color:var(--acc)}
+.smap-info-ico.done{background:var(--accd);color:var(--acc);font-weight:900;font-size:1rem}
+.smap-info-ico.cancel{background:var(--redd);color:var(--red);font-weight:900;font-size:1rem}
+.smap-pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);animation:smapPulse 1.4s ease-in-out infinite}
+@keyframes smapPulse{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,.45)}50%{box-shadow:0 0 0 6px rgba(217,119,6,0)}}
+.smap-info-body{flex:1;min-width:0}
+.smap-info-title{font-size:.78rem;font-weight:700;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.smap-info-sub{font-size:.65rem;color:var(--tx3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.smap-info-dist{font-family:var(--fd);font-weight:900;font-size:.82rem;color:var(--acc);flex-shrink:0}
+
+/* Маркеры на карте трекинга */
+.smap-marker-wrap{background:none !important;border:none !important}
+.smap-marker-dest{
+  width:30px;height:30px;border-radius:50% 50% 50% 0;background:var(--red);
+  transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 10px rgba(0,0,0,.35);border:2px solid #fff;
+}
+.smap-marker-dest svg{transform:rotate(45deg)}
+.smap-marker-courier{
+  width:34px;height:34px;border-radius:50%;
+  background:linear-gradient(135deg,var(--acc),var(--acc2));
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 3px 12px rgba(26,158,74,.5);border:2.5px solid #fff;
+  animation:smapCourierPop .32s var(--spring);
+}
+@keyframes smapCourierPop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+
 /* ── RECEIPT ── */
 .receipt{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);margin:14px 0}
 .receipt-top{background:linear-gradient(135deg,var(--acc) 0%,#0fa352 100%);padding:20px 22px 18px;color:#fff;position:relative;overflow:hidden}
@@ -796,6 +866,17 @@ select.addr-inp{cursor:pointer}
     <!-- STATUS -->
     <div class="page" id="page-status">
       <div class="sh"><div><div class="sh-tag">Пайгирӣ</div><div class="sh-title">Ҳолати <em>фармоиш</em></div></div></div>
+
+      <!-- Карта трекинга курьера в реальном вақт -->
+      <div class="status-map-card" id="status-map-card" style="display:none">
+        <div id="status-map"></div>
+        <div class="smap-top-row">
+          <div class="smap-badge-code" id="smap-code">—</div>
+          <div class="smap-badge-status" id="smap-status">—</div>
+        </div>
+        <div class="smap-info-bar" id="smap-info-bar"></div>
+      </div>
+
       <div id="status-content">
         <div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонӣ ин ҷо намоён мешавад</div></div>
       </div>
