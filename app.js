@@ -228,18 +228,8 @@ function renderGuestProfile() {
       </div>`;
   }
 
-  // Статус страница — заглушка
-  const statusPage = document.getElementById('page-status');
-  if (statusPage) {
-    const sc = statusPage.querySelector('#status-content');
-    if (sc) sc.innerHTML = `
-      <div style="text-align:center;padding:40px 20px">
-        <div style="font-size:2.5rem;margin-bottom:12px">📍</div>
-        <div style="font-family:var(--fd);font-weight:900;font-size:1rem;color:var(--tx);margin-bottom:6px">Фармоишҳои фаъол нест</div>
-        <div style="font-size:.72rem;color:var(--tx3);margin-bottom:20px">Барои пайгирии фармоиш ворид шавед</div>
-        <button onclick="goLogin()" style="background:var(--acc);border:none;border-radius:10px;color:#fff;font-size:.72rem;font-family:var(--fs);font-weight:700;padding:9px 24px;cursor:pointer">Ворид шавед</button>
-      </div>`;
-  }
+  // Статус страница недоступна гостю — блокируется в goPage() до рендера,
+  // отдельной заглушки тут не требуется (структура сторінки тепер повноекранна).
 }
 
 // ─── Проверка гостя перед действиями ────────────────────────
@@ -323,6 +313,7 @@ window.goPage = function (page) {
   document.getElementById('page-' + page)?.classList.add('active');
   document.querySelectorAll(`.ni[data-page="${page}"],.mn-item[data-page="${page}"]`)
     .forEach(n => n.classList.add('active'));
+  document.body.classList.toggle('status-fullmap', page === 'status');
   const tb = document.getElementById('tb-title');
   if (page === 'home') tb.innerHTML = 'Galelium <em>Delivery</em>';
   else if (page === 'store') tb.textContent = activeStore?.name || 'Каталог';
@@ -1525,14 +1516,14 @@ function renderLiveBanner() {
 }
 
 // ─── Карта трекинга курьера (страница «Ҳолати фармоиш») ───────
-let _trackMap         = null;
-let _trackMarkerDest  = null;
-let _trackMarkerCour  = null;
-let _trackRouteLine   = null;
+let _trackMap          = null;
+let _trackMarkerDest   = null;
+let _trackMarkerCour   = null;
+let _trackRouteLine    = null;
 let _trackCourierUnsub = null;
-let _trackCourierId   = null;
-let _trackFitted      = false;
-let _trackLastOid     = null;
+let _trackCourierId    = null;
+let _trackFitted       = false;
+let _trackLastOid      = null;
 
 const SC_HEX = {
   pending:    '#d97706',
@@ -1556,21 +1547,25 @@ function haversineKm(lat1, lng1, lat2, lng2) {
 const ICO_DEST    = '<div class="smap-marker-dest"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.6"><circle cx="12" cy="12" r="3"/></svg></div>';
 const ICO_COURIER = '<div class="smap-marker-courier"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg></div>';
 
+// Карта + плавающий топ-бар (код заказа, статус, чат-FAB)
 function renderStatusMap(o) {
-  const card = document.getElementById('status-map-card');
-  if (!card) return;
-
+  const empty   = document.getElementById('stmap-empty');
+  const chatFab = document.getElementById('stmap-chat-fab');
   const hasCoords = o && o.lat != null && o.lng != null;
+
   if (!o || !hasCoords) {
-    card.style.display = 'none';
+    if (empty)   empty.style.display = 'flex';
+    if (chatFab) chatFab.style.display = 'none';
     stopCourierTracking();
     return;
   }
+  if (empty) empty.style.display = 'none';
 
-  // Новый заказ — сбрасываем состояние привязки камеры
-  if (_trackLastOid !== o.id) { _trackLastOid = o.id; _trackFitted = false; }
-
-  card.style.display = 'block';
+  // Новий заказ — скидаємо стан прив'язки камери й розкриття листа
+  if (_trackLastOid !== o.id) {
+    _trackLastOid = o.id; _trackFitted = false;
+    document.getElementById('stmap-sheet')?.classList.remove('expanded');
+  }
 
   const num = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6).toUpperCase();
   const codeEl = document.getElementById('smap-code');
@@ -1578,11 +1573,21 @@ function renderStatusMap(o) {
 
   const stEl = document.getElementById('smap-status');
   if (stEl) {
-    const hex = SC_HEX[o.status] || '#888';
     stEl.textContent = SL[o.status] || o.status;
-    stEl.style.color = hex;
-    stEl.style.borderColor = hex + '55';
-    stEl.style.background = hex + '17';
+    stEl.style.color = SC_HEX[o.status] || '#888';
+  }
+
+  if (chatFab) {
+    if (o.courierId) {
+      chatFab.style.display = 'flex';
+      const badge = document.getElementById('stmap-chat-fab-badge');
+      if (badge) {
+        if (o.clientUnread > 0) { badge.style.display = 'flex'; badge.textContent = o.clientUnread; }
+        else badge.style.display = 'none';
+      }
+    } else {
+      chatFab.style.display = 'none';
+    }
   }
 
   // Инициализация карты (единожды за сессию)
@@ -1592,9 +1597,8 @@ function renderStatusMap(o) {
       zoomControl: false, attributionControl: false,
     });
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(_trackMap);
-    L.control.zoom({ position: 'bottomright' }).addTo(_trackMap);
   }
-  setTimeout(() => _trackMap && _trackMap.invalidateSize(), 60);
+  setTimeout(() => _trackMap && _trackMap.invalidateSize(), 80);
 
   // Маркер точки доставки — присутствует всегда
   if (!_trackMarkerDest) {
@@ -1603,32 +1607,15 @@ function renderStatusMap(o) {
     _trackMarkerDest.setLatLng([o.lat, o.lng]);
   }
 
-  const infoBar = document.getElementById('smap-info-bar');
   const TERMINAL = ['delivered', 'cancelled'];
-
   if (TERMINAL.includes(o.status)) {
     stopCourierTracking();
-    if (infoBar) {
-      infoBar.innerHTML = o.status === 'delivered'
-        ? `<div class="smap-info-row"><div class="smap-info-ico done">✓</div><div class="smap-info-body"><div class="smap-info-title">Фармоиш расонида шуд</div><div class="smap-info-sub">${o.address || ''}</div></div></div>`
-        : `<div class="smap-info-row"><div class="smap-info-ico cancel">✕</div><div class="smap-info-body"><div class="smap-info-title">Фармоиш бекор карда шуд</div></div></div>`;
-    }
     if (!_trackFitted) { _trackMap.setView([o.lat, o.lng], 15); _trackFitted = true; }
     return;
   }
 
   if (!o.courierId) {
-    // Курьер ҳанӯз таъин нашудааст — нақшаро бе маркери курьер нишон медиҳем
     stopCourierTracking();
-    if (infoBar) {
-      infoBar.innerHTML = `<div class="smap-info-row">
-        <div class="smap-info-ico waiting"><span class="smap-pulse-dot"></span></div>
-        <div class="smap-info-body">
-          <div class="smap-info-title">Мунтазири курьер</div>
-          <div class="smap-info-sub">Ба зудӣ таъин карда мешавад</div>
-        </div>
-      </div>`;
-    }
     if (!_trackFitted) { _trackMap.setView([o.lat, o.lng], 15); _trackFitted = true; }
     return;
   }
@@ -1640,17 +1627,7 @@ function renderStatusMap(o) {
     _trackCourierUnsub = onSnapshot(doc(db, 'couriers', o.courierId), snap => {
       if (!snap.exists()) return;
       const loc = snap.data()?.location;
-      if (!loc || loc.lat == null || loc.lng == null) {
-        const ib = document.getElementById('smap-info-bar');
-        if (ib) ib.innerHTML = `<div class="smap-info-row">
-          <div class="smap-info-ico waiting"><span class="smap-pulse-dot"></span></div>
-          <div class="smap-info-body">
-            <div class="smap-info-title">${escHtml(o.courierName || 'Курьер')}</div>
-            <div class="smap-info-sub">GPS интизор аст…</div>
-          </div>
-        </div>`;
-        return;
-      }
+      if (!loc || loc.lat == null || loc.lng == null) return;
       updateCourierOnMap(o, loc.lat, loc.lng);
     });
   }
@@ -1672,24 +1649,23 @@ function updateCourierOnMap(o, lat, lng) {
     _trackRouteLine.setLatLngs(pts);
   }
 
+  // Автоцентрирование лише при першій появі курьера, з відступом під плаваючі елементи
   if (!_trackFitted) {
-    try { _trackMap.fitBounds(_trackRouteLine.getBounds(), { padding: [46, 46], maxZoom: 16 }); } catch {}
+    try {
+      _trackMap.fitBounds(_trackRouteLine.getBounds(), {
+        paddingTopLeft:     [40, 90],
+        paddingBottomRight: [40, 260],
+      });
+    } catch {}
     _trackFitted = true;
   }
 
   const dist = haversineKm(lat, lng, o.lat, o.lng);
   const distTxt = dist < 1 ? Math.round(dist * 1000) + ' м' : dist.toFixed(1) + ' км';
-  const infoBar = document.getElementById('smap-info-bar');
-  if (infoBar) {
-    infoBar.innerHTML = `<div class="smap-info-row">
-      <div class="smap-info-ico active"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg></div>
-      <div class="smap-info-body">
-        <div class="smap-info-title">${escHtml(o.courierName || 'Курьер')}</div>
-        <div class="smap-info-sub">Дар роҳ ба суи шумо</div>
-      </div>
-      <div class="smap-info-dist">${distTxt}</div>
-    </div>`;
-  }
+  const distEl = document.getElementById('stmap-dist');
+  if (distEl) distEl.textContent = distTxt;
+  const subEl = document.getElementById('stmap-courier-sub');
+  if (subEl) subEl.textContent = 'Дар роҳ ба суи шумо · ' + distTxt;
 }
 
 function stopCourierTracking() {
@@ -1699,66 +1675,117 @@ function stopCourierTracking() {
   if (_trackRouteLine)  { _trackRouteLine.remove();  _trackRouteLine  = null; }
 }
 
+// Разворот/сворачивание нижнього bubble-sheet
+window.toggleStatusSheet = function () {
+  document.getElementById('stmap-sheet')?.classList.toggle('expanded');
+};
+
+// Чат з треекера — тягне поточне замовлення
+window.__openChatFromTracker = function () {
+  if (_trackLastOid) openChat(_trackLastOid);
+};
+
+// Контент плаваючого нижнього листа: пік (курьер/прогрес) + розкривна частина (деталі)
+function renderStatusSheet(o) {
+  const el = document.getElementById('stmap-sheet-content');
+  if (!el) return;
+  if (!o) { el.innerHTML = ''; return; }
+
+  const si  = STEPS.indexOf(o.status);
+  const pay = o.paymentMethod === 'cash' ? 'Нақдӣ' : o.paymentMethod === 'card' ? 'Корт' : 'Онлайн';
+  const date = fmtDate(o.createdAt);
+  const TERMINAL = ['delivered', 'cancelled'];
+
+  const miniSteps = STEPS.map((s, i) => {
+    const cls = i < si ? 'done' : i === si ? 'cur' : '';
+    return `<div class="stmap-mini-step ${cls}"></div>`;
+  }).join('');
+
+  let icoCls = 'waiting', icoHtml = '<span class="stmap-pulse-dot"></span>';
+  let cName = 'Мунтазири курьер', cSub = 'Ба зудӣ таъин карда мешавад', distHtml = '';
+
+  if (o.status === 'delivered') {
+    icoCls = 'done';
+    icoHtml = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg>`;
+    cName = 'Фармоиш расонида шуд';
+    cSub  = o.address || '';
+  } else if (o.status === 'cancelled') {
+    icoCls = 'cancel';
+    icoHtml = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+    cName = 'Фармоиш бекор карда шуд';
+    cSub  = '';
+  } else if (o.courierId) {
+    icoCls = 'active';
+    icoHtml = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>`;
+    cName = escHtml(o.courierName || 'Курьер');
+    cSub  = 'Дар роҳ ба суи шумо';
+    distHtml = `<div class="stmap-courier-dist" id="stmap-dist">…</div>`;
+  }
+
+  el.innerHTML = `
+    <div class="stmap-peek" onclick="toggleStatusSheet()">
+      <div class="stmap-courier-row">
+        <div class="stmap-courier-ico ${icoCls}">${icoHtml}</div>
+        <div class="stmap-courier-body">
+          <div class="stmap-courier-name">${cName}</div>
+          <div class="stmap-courier-sub" id="stmap-courier-sub">${cSub}</div>
+        </div>
+        ${distHtml}
+      </div>
+      ${!TERMINAL.includes(o.status) ? `<div class="stmap-mini-steps">${miniSteps}</div>` : ''}
+      <div class="stmap-expand-hint">
+        Тафсилоти фармоиш
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 9l6 6 6-6"/></svg>
+      </div>
+    </div>
+
+    <div class="stmap-expand-wrap">
+      <div class="stmap-expand-inner">
+        <div class="stmap-expand">
+          <div class="stmap-sheet-divider"></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:.76rem">
+            <div><div class="sh-tag" style="margin-bottom:3px">Суроғ</div><div style="color:var(--tx)">${o.address || '—'}</div></div>
+            <div><div class="sh-tag" style="margin-bottom:3px">Пардохт</div><div style="color:var(--tx)">${pay}</div></div>
+            <div><div class="sh-tag" style="margin-bottom:3px">Рақами фармоиш</div><div style="color:var(--tx)">${o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6)}</div></div>
+            <div><div class="sh-tag" style="margin-bottom:3px">Вақт</div><div style="color:var(--tx)">${date}</div></div>
+          </div>
+
+          <div class="stmap-sheet-divider"></div>
+          <div class="sh-tag" style="margin-bottom:10px">Таркиб</div>
+          ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.75rem"><span style="color:var(--tx)">${escHtml(i.name)}<span style="color:var(--tx3)"> ×${i.quantity}</span></span><span style="font-weight:600;color:var(--tx2)">${i.price * i.quantity} см</span></div>`).join('')}
+          <div style="display:flex;justify-content:space-between;font-size:.72rem;padding:8px 0;color:var(--tx3)"><span>Расонидан</span><span>${DFEE} см</span></div>
+          <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--b0)"><span style="font-weight:700;font-size:.8rem">Ҷамъ</span><span style="font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)">${o.total} см</span></div>
+
+          ${['pending', 'confirmed'].includes(o.status) ? `<div style="margin-top:14px"><button class="btn-sm danger" onclick="cancelO('${o.id}')">Фармоишро бекор кунед</button></div>` : ''}
+
+          ${o.confirmCode && o.status !== 'cancelled' ? `
+          <div style="margin-top:18px;margin-bottom:6px;background:${o.status === 'client_arrived' ? 'linear-gradient(135deg,rgba(26,158,74,.1),rgba(34,197,94,.05))' : 'linear-gradient(135deg,rgba(26,158,74,.06),rgba(34,197,94,.02))'};border:2px solid ${o.status === 'client_arrived' ? 'rgba(26,158,74,.35)' : 'rgba(26,158,74,.18)'};border-radius:18px;padding:18px;text-align:center">
+            <div style="font-size:.54rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--acc);margin-bottom:9px">${o.status === 'client_arrived' ? 'Рамзи тасдиқ барои курьер' : 'Рамзи тасдиқи фармоиш'}</div>
+            <div style="font-family:var(--fd);font-weight:900;font-size:2.9rem;color:var(--tx);letter-spacing:.2em;line-height:1">${o.confirmCode}</div>
+            <div style="font-size:.6rem;color:var(--tx3);margin-top:9px;line-height:1.6">${o.status === 'client_arrived' ? 'Ин рамзро ба курьер гӯед — ӯ фармоишро тасдиқ мекунад' : o.status === 'delivered' ? 'Фармоиш расонида шуд' : 'Ин рамзро ҳангоми расидани курьер ба ӯ гӯед'}</div>
+          </div>` : ''}
+        </div>
+      </div>
+    </div>`;
+
+  // Якщо курьер вже трекається — одразу показуємо поточну дистанцію
+  if (o.courierId && _trackMarkerCour) {
+    const ll = _trackMarkerCour.getLatLng();
+    const dist = haversineKm(ll.lat, ll.lng, o.lat, o.lng);
+    const distTxt = dist < 1 ? Math.round(dist * 1000) + ' м' : dist.toFixed(1) + ' км';
+    const distEl = document.getElementById('stmap-dist');
+    if (distEl) distEl.textContent = distTxt;
+  }
+}
+
 // ─── Страница статуса заказа ──────────────────────────────────
 function renderStatusPage() {
-  const el = document.getElementById('status-content');
-  if (!el) return;
   let o = null;
   if (activeOid) o = orders.find(x => x.id === activeOid);
   if (!o) o = orders.find(x => ['pending', 'confirmed', 'preparing', 'delivering'].includes(x.status));
   if (!o && orders.length > 0) o = orders[0];
   renderStatusMap(o);
-  if (!o) {
-    el.innerHTML = '<div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div></div>';
-    return;
-  }
-  const c   = SC[o.status] || '#888';
-  const l   = SL[o.status] || o.status;
-  const si  = STEPS.indexOf(o.status);
-  const num = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6);
-  const date = fmtDate(o.createdAt);
-  const pay  = o.paymentMethod === 'cash' ? 'Нақдӣ' : o.paymentMethod === 'card' ? 'Корт' : 'Онлайн';
-  const icons = ['⏳', '✅', '👨‍🍳', '🛵', '🎉'];
-  const steps = STEPS.map((s, i) => {
-    const cls = i < si ? 'done' : i === si ? 'cur' : '';
-    return `<div class="track-step ${cls}"><div class="track-dot">${i <= si ? icons[i] : ''}</div><div class="track-lbl">${SL[s]}</div></div>`;
-  }).join('');
-  el.innerHTML = `<div class="oc st-${o.status}" style="padding:18px 20px">
-    <div class="oc-head"><div class="oc-num">Фармоиш ${num}</div><div class="oc-status" style="color:${c};border-color:${c}30;background:${c}10">${l}</div></div>
-    <div class="track">${steps}</div><div class="divider"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;font-size:.76rem">
-      <div><div class="sh-tag" style="margin-bottom:3px">Суроғ</div><div style="color:var(--tx)">${o.address || '—'}</div></div>
-      <div><div class="sh-tag" style="margin-bottom:3px">Пардохт</div><div style="color:var(--tx)">${pay}</div></div>
-      <div><div class="sh-tag" style="margin-bottom:3px">Курьер</div><div style="color:var(--tx)">${o.courierName || 'Таъин мешавад…'}</div></div>
-      <div><div class="sh-tag" style="margin-bottom:3px">Вақт</div><div style="color:var(--tx)">${date}</div></div>
-    </div>
-
-    ${o.courierId ? `
-    <button class="chat-trigger" onclick="openChat('${o.id}')">
-      <div class="chat-trigger-ico">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
-      </div>
-      <div class="chat-trigger-body">
-        <div class="chat-trigger-title">Чат бо курьер</div>
-        <div class="chat-trigger-sub">${o.lastMessageAt ? escHtml(o.lastMessage || 'Паём') : (escHtml(o.courierName || 'Курьер') + ' — нависед агар савол дошта бошед')}</div>
-      </div>
-      ${o.clientUnread > 0 ? `<div class="chat-trigger-badge">${o.clientUnread}</div>` : `<svg class="chat-trigger-arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`}
-    </button>` : ''}
-
-    <div class="divider"></div>
-    <div class="sh-tag" style="margin-bottom:10px">Таркиб</div>
-    ${(o.items || []).map(i => `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--b0);font-size:.75rem"><span style="color:var(--tx)">${i.name}<span style="color:var(--tx3)"> ×${i.quantity}</span></span><span style="font-weight:600;color:var(--tx2)">${i.price * i.quantity} см</span></div>`).join('')}
-    <div style="display:flex;justify-content:space-between;font-size:.72rem;padding:8px 0;color:var(--tx3)"><span>Расонидан</span><span>${DFEE} см</span></div>
-    <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px solid var(--b0)"><span style="font-weight:700;font-size:.8rem">Ҷамъ</span><span style="font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)">${o.total} см</span></div>
-    ${['pending', 'confirmed'].includes(o.status) ? `<div style="margin-top:14px"><button class="btn-sm danger" onclick="cancelO('${o.id}')">Фармоишро бекор кунед</button></div>` : ''}
-
-    ${o.confirmCode && !['cancelled'].includes(o.status) ? `
-    <div style="margin-top:18px;background:${o.status === 'client_arrived' ? 'linear-gradient(135deg,rgba(26,158,74,.1),rgba(34,197,94,.05))' : 'linear-gradient(135deg,rgba(26,158,74,.06),rgba(34,197,94,.02))'};border:2px solid ${o.status === 'client_arrived' ? 'rgba(26,158,74,.35)' : 'rgba(26,158,74,.18)'};border-radius:18px;padding:20px;text-align:center">
-      <div style="font-size:.55rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin-bottom:10px">${o.status === 'client_arrived' ? '🔔 Рамзи тасдиқ барои курьер' : '🔐 Рамзи тасдиқи фармоиш'}</div>
-      <div style="font-family:var(--fd);font-weight:900;font-size:3.4rem;color:var(--tx);letter-spacing:.22em;line-height:1">${o.confirmCode}</div>
-      <div style="font-size:.62rem;color:var(--tx3);margin-top:10px;line-height:1.6">${o.status === 'client_arrived' ? 'Ин рамзро ба курьер гӯед — ӯ фармоишро тасдиқ мекунад' : o.status === 'delivered' ? 'Фармоиш расонида шуд ✓' : 'Ин рамзро ҳангоми расидани курьер ба ӯ гӯед'}</div>
-    </div>` : ''}
-  </div>`;
+  renderStatusSheet(o);
 }
 
 // ─── ЧАТ З КУРЬЕРОМ ────────────────────────────────────────────
