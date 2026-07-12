@@ -432,147 +432,66 @@ select.addr-inp{cursor:pointer}
 .chat-trigger-arrow{color:var(--tx3);flex-shrink:0}
 
 /* ═══════════════════════════════════════════════════════════
-   ПОЛНОЭКРАННИЙ ТРЕКЕР (страница «Ҳолати фармоиш»)
-   Карта — фон на весь экран, элементы поверх неё пузырями
+   КАРТА ТРЕКИНГА КУРЬЕРА (страница «Ҳолати фармоиш»)
+   Обычная страница в потоке; карта — контейнер внутри карточки,
+   з'являється лише коли курьер призначений
 ══════════════════════════════════════════════════════════ */
-body.status-fullmap .topbar,
-body.status-fullmap .guest-topbar{display:none !important}
-
-#page-status.active{
-  padding:0 !important;position:fixed;top:0;left:0;right:0;bottom:0;
-  z-index:120;overflow:hidden;max-width:none;
+.status-map-card{
+  position:relative;height:230px;border-radius:16px;overflow:hidden;
+  margin:14px 0;box-shadow:var(--shadow);border:1px solid var(--b0);
+  background:var(--s2);
+  animation:statusMapIn .35s var(--spring) both;
 }
-@media(min-width:861px){#page-status.active{left:var(--sw)}}
-
-.stmap-root{position:absolute;inset:0;background:var(--s2)}
+@keyframes statusMapIn{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:none}}
 #status-map{position:absolute;inset:0;z-index:1;background:var(--s2)}
-#status-map .leaflet-control-zoom{display:none}
+#status-map .leaflet-control-zoom{margin:10px !important;border:none !important;box-shadow:0 2px 8px rgba(0,0,0,.15) !important}
+#status-map .leaflet-control-zoom a{background:var(--s1) !important;color:var(--tx2) !important;border-color:var(--b0) !important}
+#status-map .leaflet-control-zoom a:hover{background:var(--s2) !important}
 
-/* ── Пустое состояние (нет активного заказа) ─────────────── */
-.stmap-empty{
-  position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:14px;padding:40px;text-align:center;
-  background:var(--bg);
+.status-map-badge{
+  position:absolute;top:10px;left:10px;z-index:20;
+  background:rgba(255,255,255,.95);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  border:1px solid var(--b0);border-radius:99px;padding:5px 12px;
+  display:flex;align-items:center;gap:6px;
+  font-size:.66rem;font-weight:700;color:var(--tx);
+  box-shadow:0 2px 10px rgba(0,0,0,.1);
 }
-.stmap-empty-ico{
-  width:68px;height:68px;border-radius:50%;background:var(--s1);
-  border:1px solid var(--b0);display:flex;align-items:center;justify-content:center;
-  color:var(--tx3);box-shadow:var(--shadow)
-}
-.stmap-empty-t{font-family:var(--fd);font-weight:800;font-size:1.02rem;color:var(--tx)}
-.stmap-empty-s{font-size:.78rem;color:var(--tx3);max-width:230px;line-height:1.5}
-.stmap-empty-btn{
-  margin-top:6px;padding:12px 24px;border-radius:99px;background:var(--acc);
-  color:#fff;border:none;font-weight:700;font-size:.8rem;cursor:pointer;
-  box-shadow:0 4px 16px var(--acc-shadow);
-}
+.status-map-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--acc);flex-shrink:0;animation:smapPulse2 1.6s ease-in-out infinite}
+@keyframes smapPulse2{0%,100%{opacity:1}50%{opacity:.4}}
 
-/* ── Плавающий топ-бар над картой ────────────────────────── */
-.stmap-topbar{
-  position:absolute;top:0;left:0;right:0;z-index:30;
-  display:flex;align-items:center;gap:10px;
-  padding:calc(env(safe-area-inset-top,0px) + 14px) 14px 0;
+/* Информационная строка под картой (курьер + дистанция) */
+.status-map-info{
+  display:flex;align-items:center;gap:11px;
+  background:var(--s1);border:1px solid var(--b0);border-radius:14px;
+  padding:11px 14px;margin:0 0 14px;
+  box-shadow:var(--shadow);
 }
-.stmap-back{
-  width:40px;height:40px;border-radius:50%;flex-shrink:0;
-  background:rgba(255,255,255,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  border:1px solid var(--b0);box-shadow:0 3px 14px rgba(0,0,0,.14);
-  display:flex;align-items:center;justify-content:center;color:var(--tx);cursor:pointer;
-  transition:transform .15s;
+.status-map-info-ico{
+  width:38px;height:38px;border-radius:50%;flex-shrink:0;
+  background:var(--accd);color:var(--acc);
+  display:flex;align-items:center;justify-content:center;
 }
-.stmap-back:active{transform:scale(.92)}
-.stmap-order-pill{
-  flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;
-  background:rgba(255,255,255,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  border:1px solid var(--b0);border-radius:99px;height:40px;padding:0 16px;
-  box-shadow:0 3px 14px rgba(0,0,0,.14);
-}
-.stmap-order-code{font-family:var(--fd);font-weight:800;font-size:.74rem;color:var(--tx);white-space:nowrap}
-.stmap-order-dot{width:3px;height:3px;border-radius:50%;background:var(--b2);flex-shrink:0}
-.stmap-order-status{font-weight:700;font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stmap-chat-fab{
-  position:relative;width:40px;height:40px;border-radius:50%;flex-shrink:0;
-  background:var(--acc);border:none;box-shadow:0 3px 14px var(--acc-shadow);
-  display:flex;align-items:center;justify-content:center;color:#fff;cursor:pointer;
-  transition:transform .15s;
-}
-.stmap-chat-fab:active{transform:scale(.92)}
-.stmap-chat-fab-badge{
-  position:absolute;top:-3px;right:-3px;min-width:17px;height:17px;padding:0 4px;
-  background:var(--red);color:#fff;border-radius:99px;font-size:.55rem;font-weight:800;
-  display:flex;align-items:center;justify-content:center;border:2px solid #fff;
-}
+.status-map-info-body{flex:1;min-width:0}
+.status-map-info-name{font-weight:700;font-size:.82rem;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-map-info-sub{font-size:.68rem;color:var(--tx3);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.status-map-info-dist{font-family:var(--fd);font-weight:900;font-size:.9rem;color:var(--acc);flex-shrink:0}
 
-/* ── Маркеры на карте ─────────────────────────────────────── */
+/* Маркеры на карте */
 .smap-marker-wrap{background:none !important;border:none !important}
 .smap-marker-dest{
-  width:30px;height:30px;border-radius:50% 50% 50% 0;background:var(--red);
+  width:28px;height:28px;border-radius:50% 50% 50% 0;background:var(--red);
   transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;
   box-shadow:0 3px 10px rgba(0,0,0,.35);border:2px solid #fff;
 }
 .smap-marker-dest svg{transform:rotate(45deg)}
 .smap-marker-courier{
-  width:34px;height:34px;border-radius:50%;
+  width:32px;height:32px;border-radius:50%;
   background:linear-gradient(135deg,var(--acc),var(--acc2));
   display:flex;align-items:center;justify-content:center;
   box-shadow:0 3px 12px rgba(26,158,74,.5);border:2.5px solid #fff;
   animation:smapCourierPop .32s var(--spring);
 }
 @keyframes smapCourierPop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
-
-/* ── Плавающий нижний "bubble sheet" ─────────────────────── */
-.stmap-sheet{
-  position:absolute;left:0;right:0;bottom:0;z-index:30;
-  background:rgba(255,255,255,.98);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-radius:24px 24px 0 0;box-shadow:0 -8px 32px rgba(0,0,0,.14);
-  border-top:1px solid var(--b0);display:flex;flex-direction:column;
-}
-@media(min-width:861px){
-  .stmap-sheet{max-width:420px;left:16px;right:auto;bottom:16px;border-radius:20px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
-}
-.stmap-sheet-handle{
-  width:100%;background:none;border:none;cursor:pointer;
-  padding:9px 0 4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
-}
-.stmap-handle-bar{width:38px;height:4px;border-radius:99px;background:var(--b1);transition:background .2s}
-.stmap-sheet-handle:hover .stmap-handle-bar{background:var(--b2)}
-
-.stmap-sheet-scroll{overflow-y:auto;-webkit-overflow-scrolling:touch;max-height:70vh;padding-bottom:calc(env(safe-area-inset-bottom,0px) + 14px)}
-
-.stmap-peek{padding:2px 18px 6px;cursor:pointer}
-.stmap-courier-row{display:flex;align-items:center;gap:12px}
-.stmap-courier-ico{width:44px;height:44px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.stmap-courier-ico.waiting{background:var(--amber-d);color:var(--amber)}
-.stmap-courier-ico.active{background:var(--accd);color:var(--acc)}
-.stmap-courier-ico.done{background:var(--accd);color:var(--acc)}
-.stmap-courier-ico.cancel{background:var(--redd);color:var(--red)}
-.stmap-pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);animation:smapPulse 1.4s ease-in-out infinite}
-@keyframes smapPulse{0%,100%{box-shadow:0 0 0 0 rgba(217,119,6,.45)}50%{box-shadow:0 0 0 6px rgba(217,119,6,0)}}
-.stmap-courier-body{flex:1;min-width:0}
-.stmap-courier-name{font-weight:800;font-size:.9rem;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stmap-courier-sub{font-size:.7rem;color:var(--tx3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.stmap-courier-dist{font-family:var(--fd);font-weight:900;font-size:.92rem;color:var(--acc);flex-shrink:0;text-align:right}
-
-.stmap-mini-steps{display:flex;align-items:center;gap:4px;margin-top:14px}
-.stmap-mini-step{flex:1;height:4px;border-radius:99px;background:var(--b0);transition:background .3s}
-.stmap-mini-step.done{background:var(--acc)}
-.stmap-mini-step.cur{background:var(--acc);animation:stmapStepPulse 1.6s ease-in-out infinite}
-@keyframes stmapStepPulse{0%,100%{opacity:1}50%{opacity:.45}}
-
-.stmap-expand-hint{
-  display:flex;align-items:center;justify-content:center;gap:5px;
-  font-size:.6rem;color:var(--tx3);margin-top:11px;font-weight:600;
-  letter-spacing:.03em;
-}
-.stmap-expand-hint svg{transition:transform .28s var(--ease)}
-.stmap-sheet.expanded .stmap-expand-hint svg{transform:rotate(180deg)}
-
-/* Раскрывающаяся часть — CSS grid-trick для плавной анимации к auto-height */
-.stmap-expand-wrap{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s var(--ease)}
-.stmap-sheet.expanded .stmap-expand-wrap{grid-template-rows:1fr}
-.stmap-expand-inner{overflow:hidden;min-height:0}
-.stmap-expand{padding:0 18px 4px}
-.stmap-sheet-divider{height:1px;background:var(--b0);margin:14px 0}
 
 /* ── RECEIPT ── */
 .receipt{background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.09);margin:14px 0}
@@ -938,45 +857,26 @@ body.status-fullmap .guest-topbar{display:none !important}
 
     <!-- STATUS -->
     <div class="page" id="page-status">
-      <div class="stmap-root" id="stmap-root">
+      <div class="sh"><div><div class="sh-tag">Пайгирӣ</div><div class="sh-title">Ҳолати <em>фармоиш</em></div></div></div>
 
-        <!-- Карта заповнює весь екран -->
+      <!-- Карта — видна ЛИШЕ коли курьер призначений -->
+      <div class="status-map-card" id="status-map-card" style="display:none">
         <div id="status-map"></div>
-
-        <!-- Пустое состояние -->
-        <div class="stmap-empty" id="stmap-empty" style="display:none">
-          <div class="stmap-empty-ico">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          </div>
-          <div class="stmap-empty-t">Фармоишҳои фаъол нест</div>
-          <div class="stmap-empty-s">Пас аз фармоиш додан, пайгирии зинда дар ин ҷо намоён мешавад</div>
-          <button class="stmap-empty-btn" onclick="goPage('catalog')">Ба каталог гузаред</button>
+        <div class="status-map-badge"><span class="dot"></span>Зинда</div>
+      </div>
+      <div class="status-map-info" id="status-map-info" style="display:none">
+        <div class="status-map-info-ico">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h11a2 2 0 012 2v3"/><rect x="9" y="11" width="14" height="10" rx="1"/><circle cx="12" cy="21" r="1"/><circle cx="20" cy="21" r="1"/></svg>
         </div>
-
-        <!-- Плавающий топ-бар -->
-        <div class="stmap-topbar">
-          <button class="stmap-back" onclick="goPage('home')">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-          </button>
-          <div class="stmap-order-pill">
-            <span class="stmap-order-code" id="smap-code">—</span>
-            <span class="stmap-order-dot"></span>
-            <span class="stmap-order-status" id="smap-status">—</span>
-          </div>
-          <button class="stmap-chat-fab" id="stmap-chat-fab" onclick="__openChatFromTracker()" style="display:none">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
-            <span class="stmap-chat-fab-badge" id="stmap-chat-fab-badge" style="display:none">0</span>
-          </button>
+        <div class="status-map-info-body">
+          <div class="status-map-info-name" id="status-map-info-name">Курьер</div>
+          <div class="status-map-info-sub">Дар роҳ ба суи шумо</div>
         </div>
+        <div class="status-map-info-dist" id="status-map-info-dist">—</div>
+      </div>
 
-        <!-- Плавающий нижний bubble-sheet -->
-        <div class="stmap-sheet" id="stmap-sheet">
-          <button class="stmap-sheet-handle" onclick="toggleStatusSheet()">
-            <div class="stmap-handle-bar"></div>
-          </button>
-          <div class="stmap-sheet-scroll" id="stmap-sheet-content"></div>
-        </div>
-
+      <div id="status-content">
+        <div class="empty"><span class="empty-ico">📍</span><div class="empty-t">Фармоишҳои фаъол нест</div><div class="empty-s">Пас аз расмикунонӣ ин ҷо намоён мешавад</div></div>
       </div>
     </div>
 
