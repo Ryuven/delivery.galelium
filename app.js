@@ -247,15 +247,24 @@ function requireAuth(msg) {
   return false;
 }
 
+// Пытается извлечь реальный номер телефона из псевдо-email dastdaroz ID
+// (992XXXXXXXXX@phone.dastdaroz.id) — используется только как аварийный
+// резерв, если документ users/{uid} почему-то не содержит поле phone.
+function phoneFromPseudoEmail(email) {
+  const m = /^992(\d{9})@phone\.dastdaroz\.id$/.exec(email || '');
+  return m ? '+992' + m[1] : '';
+}
+
 // ─── Загрузка данных пользователя ────────────────────────────
 async function loadUD() {
+  const fallbackPhone = phoneFromPseudoEmail(CU.email);
   try {
     const s = await getDoc(doc(db, 'users', CU.uid));
     UD = s.exists()
       ? s.data()
-      : { displayName: CU.displayName || '', email: CU.email, phone: '', address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
+      : { displayName: CU.displayName || '', phone: fallbackPhone, address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
   } catch {
-    UD = { displayName: '', email: CU.email, phone: '', address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
+    UD = { displayName: '', phone: fallbackPhone, address: '', lat: null, lng: null, role: 'client', avatarUrl: '' };
   }
 }
 
@@ -282,7 +291,7 @@ function renderSB() {
     if (userEl) userEl.onclick = () => goLogin();
     return;
   }
-  const name = UD?.displayName || CU.email || 'Муштарӣ';
+  const name = UD?.displayName || 'Муштарӣ';
   const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
   document.getElementById('sb-uname').textContent = name;
   const av = document.getElementById('sb-av');
@@ -1816,18 +1825,18 @@ window.sendChatMsg = async function () {
 function renderProfile() {
   const name = UD?.displayName || CU.displayName || '';
   const init = name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) || '?';
+  const phone = UD?.phone || phoneFromPseudoEmail(CU.email);
   const pn = document.getElementById('p-name');  if (pn) pn.textContent = name || 'Бе ном';
-  const pe = document.getElementById('p-email'); if (pe) pe.textContent = CU.email || '';
+  const pp = document.getElementById('p-phone'); if (pp) pp.textContent = phone || '—';
   const av = document.getElementById('p-av');    if (av) av.innerHTML = UD?.avatarUrl ? `<img src="${UD.avatarUrl}" alt="">` : init;
   const pfn = document.getElementById('pf-name');  if (pfn) pfn.value = name;
-  const pfe = document.getElementById('pf-email'); if (pfe) pfe.value = CU.email || '';
-  const pfp = document.getElementById('pf-phone'); if (pfp) pfp.value = UD?.phone || '';
+  const pfp = document.getElementById('pf-phone'); if (pfp) pfp.value = phone;
   const pfa = document.getElementById('pf-addr');  if (pfa) pfa.value = UD?.address || '';
   // Показываем координаты если есть
   const pfc = document.getElementById('pf-addr-coords');
   if (pfc) {
     if (UD?.lat && UD?.lng) {
-      pfc.textContent = `📍 ${parseFloat(UD.lat).toFixed(5)}, ${parseFloat(UD.lng).toFixed(5)}`;
+      pfc.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:3px"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>${parseFloat(UD.lat).toFixed(5)}, ${parseFloat(UD.lng).toFixed(5)}`;
       pfc.style.display = 'block';
     } else {
       pfc.style.display = 'none';
@@ -1837,14 +1846,13 @@ function renderProfile() {
 
 window.saveProfile = async function () {
   const name  = document.getElementById('pf-name').value.trim();
-  const phone = document.getElementById('pf-phone').value.trim();
   const addr  = document.getElementById('pf-addr').value.trim();
   try {
     // Если адрес вручную изменён — сбрасываем координаты (они уже не актуальны)
     const addrChanged = addr !== UD?.address;
     const saveData = {
       displayName: name,
-      phone,
+      // Телефон НЕ сохраняем — это идентификатор dastdaroz ID, менять его тут нельзя
       address: addr,
       updatedAt: serverTimestamp(),
     };

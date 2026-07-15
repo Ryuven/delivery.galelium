@@ -267,7 +267,7 @@ select.addr-inp{cursor:pointer}
 .p-av{width:70px;height:70px;border-radius:50%;background:var(--accd);border:3px solid var(--accg);display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;color:var(--acc);margin:0 auto 12px;overflow:hidden}
 .p-av img{width:100%;height:100%;object-fit:cover}
 .p-name{font-family:var(--fd);font-weight:900;font-size:1.05rem;color:var(--tx);margin-bottom:2px}
-.p-email{font-size:.68rem;color:var(--tx3);margin-bottom:14px}
+.p-phone{font-size:.68rem;color:var(--tx3);margin-bottom:14px}
 .p-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--b0);border-radius:0 0 12px 12px;overflow:hidden;margin:0 -18px -24px}
 .p-stat{background:var(--s2);padding:13px 8px;text-align:center}
 .p-stat-val{font-family:var(--fd);font-weight:900;font-size:1.15rem;color:var(--acc)}
@@ -888,7 +888,7 @@ select.addr-inp{cursor:pointer}
           <div class="pcard">
             <div class="p-av" id="p-av">?</div>
             <div class="p-name"  id="p-name">—</div>
-            <div class="p-email" id="p-email">—</div>
+            <div class="p-phone" id="p-phone">—</div>
             <div class="p-stats">
               <div class="p-stat"><div class="p-stat-val" id="ps-orders">0</div><div class="p-stat-lbl">Фармоишҳо</div></div>
               <div class="p-stat"><div class="p-stat-val" id="ps-spent">0</div><div class="p-stat-lbl">Сомонӣ</div></div>
@@ -903,9 +903,12 @@ select.addr-inp{cursor:pointer}
             <div class="pform-t">Маълумоти шахсӣ</div>
             <div class="fr2">
               <div class="ff"><label class="fl">Ном</label><input class="fi" type="text" id="pf-name" placeholder="Аҳмад Ваҳидов"/></div>
-              <div class="ff"><label class="fl">Телефон</label><input class="fi" type="tel" id="pf-phone" placeholder="+992 900 000-000"/></div>
+              <div class="ff">
+                <label class="fl">Телефон (dastdaroz ID)</label>
+                <input class="fi" type="tel" id="pf-phone" readonly style="opacity:.7;cursor:not-allowed"/>
+              </div>
             </div>
-            <div class="ff"><label class="fl">Email</label><input class="fi" type="email" id="pf-email" readonly/></div>
+            <div style="font-size:.62rem;color:var(--tx3);margin:-8px 0 14px;line-height:1.5">Рақами телефон — идентификатори ҳисоби шумо ва тағйирнопазир аст</div>
             <div class="ff">
               <label class="fl">Суроғаи пешфарзи расонидан</label>
               <div style="display:flex;gap:8px;align-items:center">
