@@ -12,7 +12,7 @@ import {
 
 import {
   doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc,
-  collection, getDocs, query, where, orderBy,
+  collection, getDocs, query, where, orderBy, limit,
   onSnapshot, serverTimestamp, increment, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js';
 
@@ -148,6 +148,7 @@ onAuthStateChanged(auth, async u => {
   setAddr();
   renderCart();
   removeGuestBanner();
+  listenSupportBadge();
 });
 
 // ─── Выход из аккаунта ────────────────────────────────────────
@@ -1820,6 +1821,325 @@ window.sendChatMsg = async function () {
   if (btn) btn.disabled = false;
   inp.focus();
 };
+
+// ─── ТЕХ. ПОДДЕРЖКА ────────────────────────────────────────────
+let supportTicketId        = null;
+let supportUnsub           = null; // слушатель сообщений
+let supportTicketDocUnsub  = null; // слушатель самого тикета (статус)
+let supportBadgeUnsub      = null; // слушатель бейджа (все тикеты клиента)
+let supportMessages        = [];
+let supportSelectedOrderId = null; // null = без привязки заказа
+let supportOrderListOpen   = false;
+
+// Точка входа: если есть открытый тикет — сразу чат, иначе — композер нового обращения
+window.openSupport = async function () {
+  const bg = document.getElementById('support-modal-bg');
+  if (bg) bg.classList.add('open');
+
+  try {
+    const q = query(
+      collection(db, 'supportTickets'),
+      where('clientId', '==', CU.uid),
+      where('status', 'in', ['open', 'in_progress']),
+    );
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      // Берём самый свежий из открытых
+      const docs = snap.docs.sort((a, b) => (b.data().updatedAt?.toMillis?.() || 0) - (a.data().updatedAt?.toMillis?.() || 0));
+      openSupportChat(docs[0].id);
+      return;
+    }
+  } catch (e) { /* при отсутствии индекса — просто откроем композер */ }
+
+  showSupportComposer();
+};
+
+function showSupportComposer() {
+  supportTicketId = null;
+  if (supportUnsub)          { supportUnsub(); supportUnsub = null; }
+  if (supportTicketDocUnsub) { supportTicketDocUnsub(); supportTicketDocUnsub = null; }
+
+  document.getElementById('support-composer').style.display   = 'block';
+  document.getElementById('support-messages').style.display   = 'none';
+  document.getElementById('support-input-row').style.display  = 'none';
+  document.getElementById('support-status-banner').innerHTML  = '';
+  const msgEl = document.getElementById('support-first-msg');
+  if (msgEl) msgEl.value = '';
+  const sub = document.getElementById('support-modal-sub');
+  if (sub) sub.textContent = 'Ба зудӣ ҷавоб медиҳем';
+
+  supportOrderListOpen = false;
+  renderSupportOrderPicker();
+}
+
+function renderSupportOrderPicker() {
+  const wrap = document.getElementById('support-order-picker');
+  if (!wrap) return;
+
+  if (!orders || orders.length === 0) {
+    supportSelectedOrderId = null;
+    wrap.innerHTML = `<div class="sup-no-orders">Шумо ҳанӯз фармоише надоред — метавонед бе интихоби фармоиш нависед</div>`;
+    return;
+  }
+
+  if (supportSelectedOrderId === undefined) supportSelectedOrderId = null;
+  // Автовыбор последнего заказа при первом открытии
+  if (supportSelectedOrderId === null && !supportOrderListOpen && !wrap.dataset.touched) {
+    supportSelectedOrderId = orders[0].id;
+  }
+  wrap.dataset.touched = '1';
+
+  const sel = supportSelectedOrderId ? orders.find(o => o.id === supportSelectedOrderId) : null;
+
+  let html = '';
+  if (sel) {
+    const num = sel.orderNumber ? '#' + sel.orderNumber : '#' + sel.id.slice(-6).toUpperCase();
+    html += `<div class="sup-order-card">
+      <div class="sup-order-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="sup-order-body">
+        <div class="sup-order-num">${num}</div>
+        <div class="sup-order-meta">${SL[sel.status] || sel.status} · ${sel.total || 0} см · ${fmtDate(sel.createdAt)}</div>
+      </div>
+    </div>`;
+  } else {
+    html += `<div class="sup-order-card dim">
+      <div class="sup-order-check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <div class="sup-order-body">
+        <div class="sup-order-num">Бе фармоиш</div>
+        <div class="sup-order-meta">Муроҷиати умумӣ</div>
+      </div>
+    </div>`;
+  }
+  html += `<button class="sup-order-change" onclick="toggleSupportOrderList()">${supportOrderListOpen ? 'Пинҳон кардан' : 'Фармоиши дигар / бе фармоиш'}</button>`;
+
+  const listItems = orders.slice(0, 5).map(o => {
+    const num = o.orderNumber ? '#' + o.orderNumber : '#' + o.id.slice(-6).toUpperCase();
+    return `<div class="sup-order-list-item" onclick="selectSupportOrder('${o.id}')">
+      <span>${num}</span><span style="color:var(--tx3);font-size:.66rem">${SL[o.status] || o.status}</span>
+    </div>`;
+  }).join('');
+  html += `<div class="sup-order-list ${supportOrderListOpen ? 'open' : ''}" id="sup-order-list">
+    ${listItems}
+    <div class="sup-order-list-item no-order" onclick="clearSupportOrder()">Бе интихоби фармоиш</div>
+  </div>`;
+
+  wrap.innerHTML = html;
+}
+
+window.toggleSupportOrderList = function () {
+  supportOrderListOpen = !supportOrderListOpen;
+  renderSupportOrderPicker();
+};
+window.selectSupportOrder = function (oid) {
+  supportSelectedOrderId = oid;
+  supportOrderListOpen = false;
+  renderSupportOrderPicker();
+};
+window.clearSupportOrder = function () {
+  supportSelectedOrderId = null;
+  supportOrderListOpen = false;
+  renderSupportOrderPicker();
+};
+
+window.createSupportTicket = async function () {
+  const inp  = document.getElementById('support-first-msg');
+  const text = inp ? inp.value.trim() : '';
+  if (!text) { toast('Паёмро нависед', 'warn'); return; }
+
+  const btn = document.getElementById('support-send-first');
+  if (btn) { btn.disabled = true; }
+
+  const order = supportSelectedOrderId ? orders.find(o => o.id === supportSelectedOrderId) : null;
+  const subject = order
+    ? `Дар бораи фармоиш #${order.orderNumber || order.id.slice(-6).toUpperCase()}`
+    : 'Муроҷиати умумӣ';
+
+  try {
+    const ref = await addDoc(collection(db, 'supportTickets'), {
+      clientId:      CU.uid,
+      clientName:    UD?.displayName || 'Мизоҷ',
+      clientPhone:   UD?.phone || '',
+      orderId:       order ? order.id : null,
+      orderNumber:   order ? (order.orderNumber || order.id.slice(-6).toUpperCase()) : null,
+      subject,
+      status:        'open',
+      lastMessage:   text.slice(0, 120),
+      lastMessageAt: serverTimestamp(),
+      lastMessageSenderRole: 'client',
+      clientUnread:  0,
+      adminUnread:   1,
+      createdAt:     serverTimestamp(),
+      updatedAt:     serverTimestamp(),
+    });
+    await addDoc(collection(db, 'supportTickets', ref.id, 'messages'), {
+      text,
+      senderId:   CU.uid,
+      senderRole: 'client',
+      senderName: UD?.displayName || 'Мизоҷ',
+      createdAt:  serverTimestamp(),
+    });
+    openSupportChat(ref.id);
+  } catch (e) {
+    toast('Хато рӯй дод. Бори дигар кӯшиш кунед', 'err');
+  }
+  if (btn) btn.disabled = false;
+};
+
+function openSupportChat(ticketId) {
+  supportTicketId = ticketId;
+  document.getElementById('support-composer').style.display  = 'none';
+  document.getElementById('support-messages').style.display  = 'flex';
+  document.getElementById('support-input-row').style.display = 'flex';
+
+  updateDoc(doc(db, 'supportTickets', ticketId), { clientUnread: 0 }).catch(() => {});
+
+  listenSupportMessages(ticketId);
+  listenSupportTicketDoc(ticketId);
+  setTimeout(() => document.getElementById('support-input')?.focus(), 300);
+}
+
+function listenSupportMessages(ticketId) {
+  if (supportUnsub) { supportUnsub(); supportUnsub = null; }
+  const q = query(collection(db, 'supportTickets', ticketId, 'messages'), orderBy('createdAt', 'asc'));
+  supportUnsub = onSnapshot(q, snap => {
+    supportMessages = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderSupportMessages();
+  });
+}
+
+function listenSupportTicketDoc(ticketId) {
+  if (supportTicketDocUnsub) { supportTicketDocUnsub(); supportTicketDocUnsub = null; }
+  supportTicketDocUnsub = onSnapshot(doc(db, 'supportTickets', ticketId), snap => {
+    if (!snap.exists()) return;
+    const t = snap.data();
+    updateSupportStatusBanner(t.status);
+    // Пока модал открыт на этом тикете — сразу гасим непрочитанные
+    if (t.clientUnread > 0) {
+      updateDoc(doc(db, 'supportTickets', ticketId), { clientUnread: 0 }).catch(() => {});
+    }
+  });
+}
+
+function updateSupportStatusBanner(status) {
+  const el = document.getElementById('support-status-banner');
+  const inputRow = document.getElementById('support-input-row');
+  if (!el) return;
+
+  if (status === 'resolved') {
+    el.innerHTML = `<div class="sup-status-banner resolved">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"/></svg>
+      Ин муроҷиат ҳал шудааст
+      <button class="sup-status-banner-btn" onclick="startNewSupportTicket()">Муроҷиати нав</button>
+    </div>`;
+    if (inputRow) inputRow.style.display = 'none';
+  } else if (status === 'in_progress') {
+    el.innerHTML = `<div class="sup-status-banner progress">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      Мутахассис бо шумо кор мекунад
+    </div>`;
+    if (inputRow) inputRow.style.display = 'flex';
+  } else {
+    el.innerHTML = '';
+    if (inputRow) inputRow.style.display = 'flex';
+  }
+}
+
+window.startNewSupportTicket = function () {
+  showSupportComposer();
+};
+
+function renderSupportMessages() {
+  const wrap = document.getElementById('support-messages');
+  if (!wrap) return;
+
+  if (supportMessages.length === 0) {
+    wrap.innerHTML = `<div class="chat-empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M3 11a9 9 0 0118 0v5a2 2 0 01-2 2h-1a2 2 0 01-2-2v-3a2 2 0 012-2h3M3 11v3a2 2 0 002 2h1a2 2 0 002-2v-3a2 2 0 00-2-2H3"/></svg>
+      <div class="chat-empty-t">Мунтазири ҷавоб</div>
+      <div class="chat-empty-s">Мутахассиси мо ба зудӣ ҷавоб медиҳад</div>
+    </div>`;
+    return;
+  }
+
+  wrap.innerHTML = supportMessages.map(m => {
+    const mine = m.senderRole === 'client';
+    const time = m.createdAt?.toDate
+      ? m.createdAt.toDate().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+      : '';
+    return `<div class="chat-msg ${mine ? 'chat-msg-me' : 'chat-msg-them'}">${escHtml(m.text)}<span class="chat-msg-time">${time}</span></div>`;
+  }).join('');
+
+  wrap.scrollTop = wrap.scrollHeight;
+}
+
+window.sendSupportMsg = async function () {
+  const inp = document.getElementById('support-input');
+  if (!inp || !supportTicketId) return;
+  const text = inp.value.trim();
+  if (!text) return;
+
+  inp.value = '';
+  inp.style.height = 'auto';
+  const btn = document.getElementById('support-send-btn');
+  if (btn) btn.disabled = true;
+
+  try {
+    await addDoc(collection(db, 'supportTickets', supportTicketId, 'messages'), {
+      text,
+      senderId:   CU.uid,
+      senderRole: 'client',
+      senderName: UD?.displayName || 'Мизоҷ',
+      createdAt:  serverTimestamp(),
+    });
+    await updateDoc(doc(db, 'supportTickets', supportTicketId), {
+      adminUnread:           increment(1),
+      lastMessage:           text.slice(0, 120),
+      lastMessageAt:         serverTimestamp(),
+      lastMessageSenderRole: 'client',
+      // Если клиент пишет после решения — считаем обращение снова открытым
+      status:                'open',
+      updatedAt:             serverTimestamp(),
+    });
+  } catch (e) {
+    toast('Хато ҳангоми фиристодани паём', 'err');
+  }
+  if (btn) btn.disabled = false;
+  inp.focus();
+};
+
+window.closeSupport = function () {
+  document.getElementById('support-modal-bg')?.classList.remove('open');
+  if (supportUnsub)          { supportUnsub(); supportUnsub = null; }
+  if (supportTicketDocUnsub) { supportTicketDocUnsub(); supportTicketDocUnsub = null; }
+  supportTicketId = null;
+  supportMessages = [];
+};
+
+// Глобальный бейдж непрочитанных — работает независимо от того, открыт ли модал
+function listenSupportBadge() {
+  if (supportBadgeUnsub) { supportBadgeUnsub(); supportBadgeUnsub = null; }
+  if (!CU) return;
+  const q = query(
+    collection(db, 'supportTickets'),
+    where('clientId', '==', CU.uid),
+    where('status', 'in', ['open', 'in_progress']),
+  );
+  supportBadgeUnsub = onSnapshot(q, snap => {
+    let total = 0;
+    snap.forEach(d => { total += d.data().clientUnread || 0; });
+    updateSupportBadgeUI(total);
+  }, () => { /* индекс ещё не готов — тихо игнорируем */ });
+}
+
+function updateSupportBadgeUI(count) {
+  const has = count > 0;
+  const entryBadge = document.getElementById('support-entry-badge');
+  if (entryBadge) { entryBadge.style.display = has ? 'flex' : 'none'; entryBadge.textContent = count; }
+  const mobBadge = document.getElementById('mob-prof-b');
+  if (mobBadge) { mobBadge.style.display = has ? 'flex' : 'none'; mobBadge.textContent = count; }
+  const sbBadge = document.getElementById('support-nb');
+  if (sbBadge) { sbBadge.style.display = has ? 'flex' : 'none'; sbBadge.textContent = count; }
+}
 
 // ─── Профиль ─────────────────────────────────────────────────
 function renderProfile() {
