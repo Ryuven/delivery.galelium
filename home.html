@@ -211,7 +211,7 @@ a{color:inherit;text-decoration:none}
 .ci-total{font-family:var(--fd);font-weight:900;font-size:.85rem;color:var(--tx);white-space:nowrap;flex-shrink:0;min-width:44px;text-align:right}
 .ci-del{background:none;border:none;cursor:pointer;color:var(--tx3);padding:4px;border-radius:6px;transition:all var(--tf);flex-shrink:0}
 .ci-del:hover{color:var(--red);background:var(--redd)}
-.cs{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:18px 20px;position:sticky;top:0;box-shadow:var(--shadow);box-sizing:border-box;overflow:hidden;min-width:0}
+.cs{background:var(--s1);border:1.5px solid var(--b0);border-radius:16px;padding:18px 20px;position:sticky;top:0;box-shadow:var(--shadow);box-sizing:border-box;overflow:hidden;min-width:0;max-width:100%;width:100%}
 .cs-row{display:flex;justify-content:space-between;align-items:center;font-size:.76rem;color:var(--tx2);margin-bottom:9px}
 .cs-row.total{margin-top:14px;padding-top:14px;border-top:1.5px solid var(--b0);color:var(--tx);font-weight:600;margin-bottom:0}
 .cs-row.total .price{font-family:var(--fd);font-weight:900;font-size:1.2rem;color:var(--acc)}
@@ -834,7 +834,7 @@ select.addr-inp{cursor:pointer}
       <div class="sh"><div><div class="sh-tag">Расмикунонӣ</div><div class="sh-title">Сабад</div></div><button class="sh-link" style="color:var(--red)" onclick="clearCartUI()">Тоза кардан</button></div>
       <div class="cart-layout">
         <div id="cart-list"></div>
-        <div><div class="cs" id="cart-sum">
+        <div style="min-width:0;max-width:100%"><div class="cs" id="cart-sum">
           <div class="sh-tag" style="margin-bottom:14px">Ҷамъбаст</div>
           <div class="cs-row"><span>Маҳсулот</span><span id="cs-items">0 см</span></div>
           <div class="cs-row"><span>Расонидан</span><span id="cs-del">7 см</span></div>
