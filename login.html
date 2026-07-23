@@ -128,7 +128,7 @@ body{
   font-family:var(--fs);font-weight:700;font-size:.86rem;color:var(--tx2);
   flex-shrink:0;user-select:none;
 }
-.phone-flag{width:16px;height:12px;border-radius:2px;overflow:hidden;flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,.08)}
+.phone-flag{width:14px;height:21px;border-radius:2px;flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,.10);object-fit:cover;display:block}
 .phone-input{
   flex:1;min-width:0;border:none;background:none;outline:none;
   color:var(--tx);font-family:var(--fs);font-size:.88rem;font-weight:500;
@@ -293,14 +293,7 @@ body{
         <label class="lbl" for="login-phone">Рақами телефон</label>
         <div class="phone-field">
           <div class="phone-prefix">
-            <span class="phone-flag">
-              <svg width="16" height="12" viewBox="0 0 16 12">
-                <rect width="16" height="4" fill="#cc0000"/>
-                <rect y="4" width="16" height="4" fill="#fff"/>
-                <rect y="8" width="16" height="4" fill="#006600"/>
-                <circle cx="8" cy="6" r="1.6" fill="#f8b800"/>
-              </svg>
-            </span>
+            <img class="phone-flag" src="flag_tajikistan_96x64.png" alt="TJ"/>
             +992
           </div>
           <input type="tel" id="login-phone" class="phone-input"
@@ -369,7 +362,7 @@ body{
     <div class="field">
       <label class="lbl" for="reg-name">Ном ва насаб</label>
       <input type="text" id="reg-name" class="inp"
-        placeholder="Аҳмад Ваҳидов" autocomplete="name"/>
+        placeholder="Фируз Мирзоев" autocomplete="name"/>
       <div class="field-err" id="err-reg-name"></div>
     </div>
 
@@ -377,14 +370,7 @@ body{
       <label class="lbl" for="reg-phone">Рақами телефон</label>
       <div class="phone-field">
         <div class="phone-prefix">
-          <span class="phone-flag">
-            <svg width="16" height="12" viewBox="0 0 16 12">
-              <rect width="16" height="4" fill="#cc0000"/>
-              <rect y="4" width="16" height="4" fill="#fff"/>
-              <rect y="8" width="16" height="4" fill="#006600"/>
-              <circle cx="8" cy="6" r="1.6" fill="#f8b800"/>
-            </svg>
-          </span>
+          <img class="phone-flag" src="flag_tajikistan_96x64.png" alt="TJ"/>
           +992
         </div>
         <input type="tel" id="reg-phone" class="phone-input"
