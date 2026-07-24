@@ -451,13 +451,152 @@ body{
     updateProfile,
     setPersistence, browserLocalPersistence,
   } from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-auth.js';
-  import { doc, getDoc, setDoc, serverTimestamp }
+  import { doc, setDoc, serverTimestamp }
     from 'https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js';
 
-  const HOME = 'home.html';
+  const HOME         = 'home.html';
   const PHONE_DOMAIN = 'phone.dastdaroz.id';
 
-  function digitsOnly(v) { return (v || '').replace(/\D/g, ''); }
+  // ─────────────────────────────────────────────────────────────
+  //  Rate Limiter
+  //  Хранение: sessionStorage (переживает refresh, сбрасывается
+  //  при закрытии вкладки). Без синхронизации между вкладками —
+  //  достаточно для данного проекта.
+  //
+  //  Две защиты:
+  //  1. Per-key  — по номеру телефона (брутфорс паролей)
+  //  2. Global   — по сессии (перебор разных номеров)
+  // ─────────────────────────────────────────────────────────────
+  const RL = (() => {
+    const SK          = 'rl_v1';           // sessionStorage key
+    const MAX_FAILS   = 5;                 // попыток до блокировки
+    const WIN_MS      = 15 * 60_000;       // скользящее окно 15 мин
+    // прогрессивные паузы: 30с → 2м → 15м → 1ч
+    const LOCKOUTS_MS = [30_000, 120_000, 900_000, 3_600_000];
+    const G_MAX       = 30;                // глобально макс попыток
+    const G_WIN_MS    = 10 * 60_000;       // за 10 мин
+
+    const load = () => {
+      try { return JSON.parse(sessionStorage.getItem(SK) || '{}'); }
+      catch { return {}; }
+    };
+    const save = s => {
+      try { sessionStorage.setItem(SK, JSON.stringify(s)); }
+      catch {}
+    };
+
+    // Проверка: заблокирован ли ключ?
+    function check(key) {
+      const now = Date.now();
+      const s   = load();
+      const e   = s[key];
+      if (!e) return { ok: true, fails: 0 };
+      // Активная блокировка
+      if (e.until && now < e.until) {
+        return { ok: false, until: e.until };
+      }
+      // Окно истекло — сбрасываем
+      if (!e.until && now - e.first > WIN_MS) {
+        delete s[key]; save(s);
+        return { ok: true, fails: 0 };
+      }
+      return { ok: true, fails: e.fails || 0 };
+    }
+
+    // Записать неудачную попытку, вернуть новое состояние
+    function fail(key) {
+      const now = Date.now();
+      const s   = load();
+      let e     = s[key];
+
+      // Новая сессия или истёкшее окно
+      if (!e || (!e.until && now - e.first > WIN_MS)) {
+        e = { fails: 0, lockouts: 0, first: now };
+      }
+      // Прошлая блокировка уже истекла — обнуляем счётчик
+      if (e.until && now >= e.until) {
+        e.fails = 0;
+        delete e.until;
+        e.first = now;
+      }
+
+      e.fails = (e.fails || 0) + 1;
+
+      if (e.fails >= MAX_FAILS) {
+        const dur  = LOCKOUTS_MS[Math.min(e.lockouts, LOCKOUTS_MS.length - 1)];
+        e.until    = now + dur;
+        e.lockouts = (e.lockouts || 0) + 1;
+        e.fails    = 0;
+        e.first    = now;
+      }
+
+      s[key] = e;
+      save(s);
+      return check(key);
+    }
+
+    // Успешный вход — очищаем счётчик
+    function success(key) {
+      const s = load();
+      delete s[key];
+      save(s);
+    }
+
+    // Глобальный rate limit (все попытки в сессии)
+    function checkGlobal() {
+      const now = Date.now();
+      const s   = load();
+      const g   = s['__g'] || { t: [] };
+      g.t = g.t.filter(x => now - x < G_WIN_MS);
+      if (g.t.length >= G_MAX) {
+        s['__g'] = g; save(s);
+        return false;
+      }
+      g.t.push(now);
+      s['__g'] = g;
+      save(s);
+      return true;
+    }
+
+    return { check, fail, success, checkGlobal, MAX_FAILS };
+  })();
+
+  // ─────────────────────────────────────────────────────────────
+  //  Countdown — блокирует кнопку и показывает таймер
+  // ─────────────────────────────────────────────────────────────
+  let _cdTimer = null;
+
+  function startLockout(until, btn) {
+    if (_cdTimer) clearInterval(_cdTimer);
+    setLoading(btn, false);
+    btn.disabled = true;
+
+    const tick = () => {
+      const sec = Math.ceil((until - Date.now()) / 1000);
+      if (sec <= 0) {
+        clearInterval(_cdTimer);
+        _cdTimer  = null;
+        btn.disabled = false;
+        hideAlert();
+        return;
+      }
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      const t = m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s} сон`;
+      showAlert(
+        'Дастрасӣ муваqqатан маҳдуд',
+        `Хеле зиёд кӯшишҳои нодуруст. Такрор кӯшиш баъди: ${t}`
+      );
+    };
+
+    tick();
+    _cdTimer = setInterval(tick, 1000);
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  //  Helpers
+  // ─────────────────────────────────────────────────────────────
+  function digitsOnly(v)  { return (v || '').replace(/\D/g, ''); }
 
   function normalizePhone(raw) {
     let d = digitsOnly(raw);
@@ -471,15 +610,12 @@ body{
     return '+992 ' + d9.slice(0,2) + ' ' + d9.slice(2,5) + ' ' + d9.slice(5,7) + ' ' + d9.slice(7,9);
   }
 
-  function phoneToPseudoEmail(d9) {
-    return `992${d9}@${PHONE_DOMAIN}`;
-  }
+  function phoneToPseudoEmail(d9) { return `992${d9}@${PHONE_DOMAIN}`; }
 
   function attachPhoneMask(input) {
     input.addEventListener('input', () => {
-      let d = digitsOnly(input.value).slice(0, 9);
-      let out = '';
-      if (d.length > 0) out += d.slice(0,2);
+      let d = digitsOnly(input.value).slice(0, 9), out = '';
+      if (d.length > 0) out  = d.slice(0,2);
       if (d.length > 2) out += ' ' + d.slice(2,5);
       if (d.length > 5) out += ' ' + d.slice(5,7);
       if (d.length > 7) out += ' ' + d.slice(7,9);
@@ -487,6 +623,9 @@ body{
     });
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  DOM refs
+  // ─────────────────────────────────────────────────────────────
   const fbBar      = document.getElementById('fb-bar');
   const alertEl    = document.getElementById('lock-alert');
   const alertTitle = document.getElementById('alert-title');
@@ -507,18 +646,21 @@ body{
   const ldot2        = document.getElementById('ldot-2');
   const phoneChipNum = document.getElementById('phone-chip-num');
 
-  const regName = document.getElementById('reg-name');
-  const regPhone= document.getElementById('reg-phone');
-  const regPass = document.getElementById('reg-pass');
-  const btnReg  = document.getElementById('btn-reg');
+  const regName  = document.getElementById('reg-name');
+  const regPhone = document.getElementById('reg-phone');
+  const regPass  = document.getElementById('reg-pass');
+  const btnReg   = document.getElementById('btn-reg');
 
   attachPhoneMask(loginPhone);
   attachPhoneMask(regPhone);
 
   let loginPhoneDigits = null;
 
+  // ─────────────────────────────────────────────────────────────
+  //  Auth state
+  // ─────────────────────────────────────────────────────────────
   fbBar.classList.add('loading');
-  onAuthStateChanged(auth, async user => {
+  onAuthStateChanged(auth, user => {
     fbBar.classList.remove('loading');
     fbBar.classList.add('done');
     if (user) {
@@ -531,6 +673,9 @@ body{
     }
   });
 
+  // ─────────────────────────────────────────────────────────────
+  //  Tabs
+  // ─────────────────────────────────────────────────────────────
   const tabLogin  = document.getElementById('tab-login');
   const tabReg    = document.getElementById('tab-reg');
   const formLogin = document.getElementById('form-login');
@@ -547,22 +692,24 @@ body{
     hideAlert();
     clearAllErrors();
     goLoginStep(1);
+    if (_cdTimer) { clearInterval(_cdTimer); _cdTimer = null; btnLogin.disabled = false; }
   }
   tabLogin.addEventListener('click', () => switchMode('login'));
   tabReg.addEventListener('click',   () => switchMode('reg'));
   document.getElementById('go-reg').addEventListener('click',   () => switchMode('reg'));
   document.getElementById('go-login').addEventListener('click', () => switchMode('login'));
 
+  // ─────────────────────────────────────────────────────────────
+  //  Eye toggles / password strength
+  // ─────────────────────────────────────────────────────────────
   function bindEye(btnId, inpId, showId, hideId) {
     const btn = document.getElementById(btnId);
     const inp = document.getElementById(inpId);
-    const s   = document.getElementById(showId);
-    const h   = document.getElementById(hideId);
     btn.addEventListener('click', () => {
       const isPass = inp.type === 'password';
       inp.type = isPass ? 'text' : 'password';
-      s.style.display = isPass ? 'none' : '';
-      h.style.display = isPass ? '' : 'none';
+      document.getElementById(showId).style.display = isPass ? 'none' : '';
+      document.getElementById(hideId).style.display = isPass ? '' : 'none';
     });
   }
   bindEye('eye-login', 'login-pass', 'eye-login-show', 'eye-login-hide');
@@ -582,16 +729,20 @@ body{
     const labels = ['Заиф','Миёна','Хуб','Мустаҳкам'];
     psBars.forEach((b, i) => { b.style.background = i < score ? colors[Math.min(score,4)-1] : 'var(--s3)'; });
     psLbl.style.display = 'block';
-    psLbl.textContent = labels[Math.min(score,4)-1] || '';
-    psLbl.style.color = colors[Math.min(score,4)-1] || 'var(--tx3)';
+    psLbl.textContent   = labels[Math.min(score,4)-1] || '';
+    psLbl.style.color   = colors[Math.min(score,4)-1] || 'var(--tx3)';
   });
 
-  function showAlert(title, msg) {
+  // ─────────────────────────────────────────────────────────────
+  //  Alert / field errors
+  // ─────────────────────────────────────────────────────────────
+  function showAlert(title, msg, type = 'err') {
     alertTitle.textContent = title;
     alertMsg.textContent   = ' ' + msg;
-    alertEl.className = 'alert err show';
+    alertEl.className = `alert ${type} show`;
   }
   function hideAlert() { alertEl.className = 'alert err'; }
+
   function showFieldErr(id, msg) {
     const inp = document.getElementById(id);
     const err = document.getElementById('err-' + id);
@@ -609,9 +760,16 @@ body{
     hideAlert();
   }
   [loginPhone, loginPass, regName, regPhone, regPass].forEach(inp => {
-    inp.addEventListener('input', () => { clearFieldErr(inp.id); hideAlert(); });
+    inp.addEventListener('input', () => {
+      if (_cdTimer) return; // не сбрасывать alert во время countdown
+      clearFieldErr(inp.id);
+      hideAlert();
+    });
   });
 
+  // ─────────────────────────────────────────────────────────────
+  //  Step navigation
+  // ─────────────────────────────────────────────────────────────
   function goLoginStep(n) {
     loginStep1.style.display = n === 1 ? '' : 'none';
     loginStep2.style.display = n === 2 ? '' : 'none';
@@ -629,21 +787,34 @@ body{
     loginPhoneDigits = d9;
     phoneChipNum.textContent = formatPhoneDisplay(d9);
     goLoginStep(2);
+
+    // Восстановить lockout после refresh страницы
+    const st = RL.check(phoneToPseudoEmail(d9));
+    if (!st.ok) startLockout(st.until, btnLogin);
   });
-  btnLoginBack.addEventListener('click', () => { loginPass.value = ''; goLoginStep(1); });
+
+  btnLoginBack.addEventListener('click', () => {
+    if (_cdTimer) { clearInterval(_cdTimer); _cdTimer = null; btnLogin.disabled = false; }
+    loginPass.value = '';
+    hideAlert();
+    goLoginStep(1);
+  });
   loginPhone.addEventListener('keydown', e => { if (e.key === 'Enter') btnLoginNext.click(); });
   loginPass.addEventListener('keydown',  e => { if (e.key === 'Enter') btnLogin.click(); });
 
+  // ─────────────────────────────────────────────────────────────
+  //  Firebase error messages
+  // ─────────────────────────────────────────────────────────────
   function fbErr(code) {
     const map = {
-      'auth/user-not-found':            ['Ҳисоб ёфт нашуд', 'Бо ин рақами телефон ҳисоб вуҷуд надорад. Аввал сабти ном кунед.'],
-      'auth/wrong-password':            ['Парол нодуруст', 'Парол хато аст. Бори дигар кӯшиш кунед.'],
-      'auth/invalid-credential':        ['Маълумот нодуруст', 'Рақам ё парол нодуруст аст.'],
-      'auth/invalid-login-credentials': ['Маълумот нодуруст', 'Рақам ё парол нодуруст аст.'],
-      'auth/too-many-requests':         ['Хеле кӯшишҳо', 'Каме сабр кунед ва бори дигар кӯшиш кунед.'],
-      'auth/email-already-in-use':      ['Рақам аллакай сабт аст', 'Бо ин рақами телефон ҳисоб аллакай вуҷуд дорад. Ворид шавед.'],
-      'auth/weak-password':             ['Парол хеле сода', 'Парол бояд ҳадди ақал 6 аломат дошта бошад.'],
-      'auth/network-request-failed':    ['Хатои шабака', 'Пайвастшавӣ ба интернетро санҷед.'],
+      'auth/user-not-found':            ['Ҳисоб ёфт нашуд',    'Бо ин рақами телефон ҳисоб вуҷуд надорад. Аввал сабти ном кунед.'],
+      'auth/wrong-password':            ['Парол нодуруст',      'Парол хато аст. Бори дигар кӯшиш кунед.'],
+      'auth/invalid-credential':        ['Маълумот нодуруст',   'Рақам ё парол нодуруст аст.'],
+      'auth/invalid-login-credentials': ['Маълумот нодуруст',   'Рақам ё парол нодуруст аст.'],
+      'auth/too-many-requests':         ['Firebase: маҳдудият', 'Хеле зиёд кӯшишҳо. Каме сабр кунед.'],
+      'auth/email-already-in-use':      ['Рақам аллакай сабт',  'Бо ин рақами телефон ҳисоб аллакай вуҷуд дорад. Ворид шавед.'],
+      'auth/weak-password':             ['Парол хеле сода',     'Парол бояд ҳадди ақал 6 аломат дошта бошад.'],
+      'auth/network-request-failed':    ['Хатои шабака',        'Пайвастшавӣ ба интернетро санҷед.'],
     };
     return map[code] || ['Хатогӣ рӯй дод', 'Чизе нодуруст шуд. Бори дигар кӯшиш кунед.'];
   }
@@ -653,23 +824,65 @@ body{
     btn.classList.toggle('loading', on);
   }
 
+  // ─────────────────────────────────────────────────────────────
+  //  LOGIN
+  // ─────────────────────────────────────────────────────────────
+  const WRONG_PASS_CODES = new Set([
+    'auth/wrong-password',
+    'auth/invalid-credential',
+    'auth/invalid-login-credentials',
+  ]);
+
   btnLogin.addEventListener('click', async () => {
     const pass = loginPass.value;
     if (!pass) { showFieldErr('login-pass', 'Паролро ворид кунед'); return; }
     if (!loginPhoneDigits) { goLoginStep(1); return; }
+
+    // 1. Глобальный rate limit
+    if (!RL.checkGlobal()) {
+      showAlert('Хеле зиёд кӯшишҳо', 'Каме сабр кунед ва бори дигар кӯшиш кунед.');
+      return;
+    }
+
+    // 2. Per-phone rate limit
+    const key     = phoneToPseudoEmail(loginPhoneDigits);
+    const rlState = RL.check(key);
+    if (!rlState.ok) { startLockout(rlState.until, btnLogin); return; }
+
     setLoading(btnLogin, true);
     try {
       await setPersistence(auth, browserLocalPersistence);
-      await signInWithEmailAndPassword(auth, phoneToPseudoEmail(loginPhoneDigits), pass);
+      await signInWithEmailAndPassword(auth, key, pass);
+      RL.success(key);                         // сбросить счётчик при успехе
       statusText.textContent = 'Муваффақ! Гузариш…';
       window.location.href = HOME;
     } catch (e) {
-      const [t, m] = fbErr(e.code);
-      showAlert(t, m);
-      setLoading(btnLogin, false);
+      if (WRONG_PASS_CODES.has(e.code)) {
+        // Записываем неудачу и проверяем lockout
+        const res     = RL.fail(key);
+        const [t, m]  = fbErr(e.code);
+        if (!res.ok) {
+          startLockout(res.until, btnLogin);   // заблокировать
+        } else {
+          const left = RL.MAX_FAILS - res.fails;
+          const hint = left <= 2
+            ? ` Боқимонда: ${left} кӯшиш.`
+            : '';
+          showAlert(t, m + hint);
+          setLoading(btnLogin, false);
+        }
+      } else {
+        // Сетевые ошибки, Firebase rate limit и т.д. — не считаем как брутфорс
+        const [t, m] = fbErr(e.code);
+        showAlert(t, m);
+        setLoading(btnLogin, false);
+      }
     }
   });
 
+  // ─────────────────────────────────────────────────────────────
+  //  REGISTER
+  // ─────────────────────────────────────────────────────────────
   btnReg.addEventListener('click', async () => {
     clearAllErrors();
     const name = regName.value.trim();
@@ -680,6 +893,11 @@ body{
     if (!d9)              { showFieldErr('reg-phone', 'Рақами дуруст ворид кунед (9 рақам)'); bad = true; }
     if (pass.length < 6)  { showFieldErr('reg-pass',  'Ҳадди ақал 6 аломат лозим аст'); bad = true; }
     if (bad) return;
+
+    if (!RL.checkGlobal()) {
+      showAlert('Хеле зиёд кӯшишҳо', 'Каме сабр кунед ва бори дигар кӯшиш кунед.');
+      return;
+    }
 
     setLoading(btnReg, true);
     try {
